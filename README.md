@@ -37,3 +37,25 @@ python3 -c "from PyQt6.QtWidgets import QApplication; print('Qt OK')"
 
 import os
 os.environ["QT_OPENGL"] = "software"
+
+
+#define ADC_PIN 34
+#define SAMPLE_RATE 8000  // 8 kHz
+
+void setup() {
+  Serial.begin(921600);   // velocidad alta
+  analogReadResolution(12);
+  analogSetPinAttenuation(ADC_PIN, ADC_11db);
+}
+
+void loop() {
+  static unsigned long lastMicros = 0;
+  unsigned long now = micros();
+
+  if (now - lastMicros >= 1000000 / SAMPLE_RATE) {
+    lastMicros = now;
+
+    uint16_t sample = analogRead(ADC_PIN); // 0–4095
+    Serial.write((uint8_t*)&sample, 2);    // enviar 2 bytes  
+  }
+}
