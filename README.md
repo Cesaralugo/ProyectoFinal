@@ -39,23 +39,22 @@ import os
 os.environ["QT_OPENGL"] = "software"
 
 
-#define ADC_PIN 34
-#define SAMPLE_RATE 8000  // 8 kHz
+pip install pyserial sounddevice numpy
 
-void setup() {
-  Serial.begin(921600);   // velocidad alta
-  analogReadResolution(12);
-  analogSetPinAttenuation(ADC_PIN, ADC_11db);
-}
+import serial
+import numpy as np
+import sounddevice as sd
 
-void loop() {
-  static unsigned long lastMicros = 0;
-  unsigned long now = micros();
+ser = serial.Serial('COM3', 921600)  # cambia COM3
 
-  if (now - lastMicros >= 1000000 / SAMPLE_RATE) {
-    lastMicros = now;
+sample_rate = 8000
 
-    uint16_t sample = analogRead(ADC_PIN); // 0–4095
-    Serial.write((uint8_t*)&sample, 2);    // enviar 2 bytes  
-  }
-}
+while True:
+    data = ser.read(2 * 1024)  # leer 1024 muestras (2 bytes c/u)
+    samples = np.frombuffer(data, dtype=np.uint16)
+
+    # convertir 0–4095 a -1.0 a 1.0
+    samples = (samples - 2048) / 2048.0
+
+    sd.play(samples, sample_rate)
+    sd.wait()
