@@ -29,8 +29,9 @@ int socket_init() {
     return 0;
 }
 
-int socket_send_float(float value) {
-    return send(client_fd, &value, sizeof(float), 0);
+int socket_send_two_floats(float pre, float post) {
+    float buffer[2] = { pre, post };
+    return send(client_fd, buffer, sizeof(buffer), 0);
 }
 
 void socket_close() {

@@ -5,9 +5,10 @@ import json
 
 from ui.effect_widget import EffectWidget
 from core.preset_model import PresetModel
-from server.receiver import TcpServer
+from server.receiver_app import TcpServer
+from server.receiver_c import SocketReceiver
 
-
+from collections import deque
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QSlider, QLabel, QComboBox, QListWidget, QListWidgetItem 
 from PyQt6.QtCore import QTimer, Qt
 
@@ -17,6 +18,18 @@ class MainWindow(QWidget):
         super().__init__()  
 
         self.setWindowTitle("Audio Interface")
+        
+        #Conexión con C
+        self.receiver = SocketReceiver()
+        self.receiver.pre_received.connect(self.update_pre_buffer)
+        self.receiver.post_received.connect(self.update_buffer)
+        self.receiver.start()
+
+        self.pre_buffer = deque([0]*500, maxlen=500)
+        self.signal_buffer = deque([0]*500, maxlen=500)
+
+
+
         self.t = 0
         
         #Definimos el tipo de layer
@@ -82,7 +95,7 @@ class MainWindow(QWidget):
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.sim_signal)
-        self.timer.start(80) #Elegir velocidad en la que se generan los puntos
+        self.timer.start(100) #Elegir velocidad en la que se generan los puntos
 
         self.server = TcpServer()
         self.server.json_received.connect(self.handle_remote_json)
@@ -130,17 +143,19 @@ class MainWindow(QWidget):
         print("JSON ready for C++: ")
         print(self.model.to_json())
 
-    #Definir funciones
+
+    def update_buffer(self, value):
+        self.signal_buffer.append(value)
+
+    def update_pre_buffer(self, value):
+            self.pre_buffer.append(value)
+
+    def update_buffer(self, value):
+            self.signal_buffer.append(value)
+    #Recepción de señales
     def sim_signal(self):
-        x = np.linspace(self.t, self.t + 1, 500)
-        
-        clean_sig = np.sin(2 * np.pi * 5 * x)
-        processed_sig = clean_sig.copy()
-
-        self.curve_pre.setData(clean_sig)
-        self.curve_post.setData(processed_sig)
-
-        self.t += 0.05
+        self.curve_pre.setData(list(self.pre_buffer))
+        self.curve_post.setData(list(self.signal_buffer))
 
     def handle_param_change(self, effect_id, param, value):
         print("MainWindow updating model")
