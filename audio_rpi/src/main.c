@@ -10,7 +10,6 @@
 
 
 #define SAMPLE_RATE 41100
-#define PI 3.14159265359f
 
 int main()
 {
