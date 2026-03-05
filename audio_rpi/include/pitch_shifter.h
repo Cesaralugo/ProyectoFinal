@@ -1,5 +1,5 @@
-#ifndef PITCH_SHIFTER_H9_H
-#define PITCH_SHIFTER_H9_H
+#ifndef PITCH_SHIFTER_H
+#define PITCH_SHIFTER_H
 
 #include <stdint.h>
 #include <math.h>
@@ -18,9 +18,9 @@ typedef struct {
     int grainSize;
     float buffer[(SAMPLE_RATE * PITCH_MAX_DELAY_MS) / 1000];
     int grainOffsets[MAX_GRAINS];
-} PitchShifterH9;
+} PitchShifter;
 
-void PitchShifterH9_init(PitchShifterH9 *ps, float semitones, float mix);
-float PitchShifterH9_process(PitchShifterH9 *ps, float input);
+void PitchShifterH9_init(PitchShifter *ps, float semitones, float mix);
+float PitchShifterH9_process(PitchShifter *ps, float input);
 
 #endif
