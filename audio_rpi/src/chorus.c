@@ -4,9 +4,9 @@
 #include "chorus.h"
 
 #define PI 3.14159265358979323846f
-#define MAX_DELAY_SAMPLES ((MAX_DELAY_MS * SAMPLE_RATE) / 1000)
+#define CHORUS_MAX_DELAY_SAMPLES ((CHORUS_MAX_DELAY_MS * SAMPLE_RATE) / 1000)
 
-static float buffer[MAX_DELAY_SAMPLES];
+static float buffer[CHORUS_MAX_DELAY_SAMPLES];
 static int writeIndex = 0;
 static float lfoPhase = 0.0f;
 
@@ -39,10 +39,10 @@ float Chorus_process(Chorus *ch, float input)
 
     float readIndex = writeIndex - delaySamples;
     if (readIndex < 0)
-        readIndex += MAX_DELAY_SAMPLES;
+        readIndex += CHORUS_MAX_DELAY_SAMPLES;
 
     int index1 = (int)readIndex;
-    int index2 = (index1 + 1) % MAX_DELAY_SAMPLES;
+    int index2 = (index1 + 1) % CHORUS_MAX_DELAY_SAMPLES;
     float frac = readIndex - index1;
 
     // Interpolación lineal
@@ -52,7 +52,7 @@ float Chorus_process(Chorus *ch, float input)
 
     // Avanzar buffer
     writeIndex++;
-    if (writeIndex >= MAX_DELAY_SAMPLES)
+    if (writeIndex >= CHORUS_MAX_DELAY_SAMPLES)
         writeIndex = 0;
 
     // Mezcla wet/dry
