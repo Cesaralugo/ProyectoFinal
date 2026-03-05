@@ -2,7 +2,8 @@
 #include <math.h>
 #include <unistd.h> 
 #include "../include/delay.h"
-#include "overdrive.h"
+#include "../include/overdrive.h"
+#include "../include/wah.h"
 #include "../include/socket_server.h"
 
 #define SAMPLE_RATE 41100
@@ -14,6 +15,8 @@ int main()
     Delay_init(&delay, 20.0f, 0.5f, 0.4f);
     Overdrive od;
     Overdrive_init(&od, 3.0f, 0.7f, 0.9f);
+    Wah wah;
+    Wah_init(&wah, 2.0f, 3.0f, 0.9f);
 
     socket_init();
 
