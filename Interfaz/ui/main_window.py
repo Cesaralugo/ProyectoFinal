@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPu
 from PyQt6.QtCore import QTimer, Qt
 
 class MainWindow(QWidget):
+    SAMPLE_RATE = 41100  
 
     def __init__(self):
         super().__init__()  
