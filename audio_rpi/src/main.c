@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include <math.h>
 #include <unistd.h> 
+#include "../include/socket_server.h"
+
 #include "../include/delay.h"
 #include "../include/overdrive.h"
 #include "../include/wah.h"
-#include "../include/socket_server.h"
+#include "../include/chorus.h"
+
 
 #define SAMPLE_RATE 41100
 #define PI 3.14159265359f
@@ -17,6 +20,9 @@ int main()
     Overdrive_init(&od, 3.0f, 0.7f, 0.9f);
     Wah wah;
     Wah_init(&wah, 2.0f, 3.0f, 0.9f);
+    Chorus ch;
+    Chorus_init(&ch,0.8f, 0.7f, 0.5f);
+
 
     socket_init();
 

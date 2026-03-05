@@ -6,7 +6,7 @@
 
 typedef struct {
     float gain;    // cuánto amplifica la señal
-    float tone;    // control de brillo (simple, tipo filtro pasa bajos)
+    float tone;    // control de brillo 
     float output;  // nivel final de salida
 } Overdrive;
 
