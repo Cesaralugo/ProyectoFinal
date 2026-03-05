@@ -11,13 +11,13 @@ typedef struct {
     float rate;    
     float depth;    
     float feedback;
-    flaot mix;
+    float mix;
 } Flanger;
 
 // Inicializa el efecto
 void Flanger_init(Flanger *flanger, float rate, float depth, float feedback, float mix);
 
 // Procesa una sola muestra
-float Flanger_process(Wah *flanger, float input);
+float Flanger_process(Flanger *flanger, float input);
 
 #endif
