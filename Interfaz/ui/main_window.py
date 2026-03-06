@@ -184,7 +184,9 @@ class MainWindow(QWidget):
             if len(y) < N_fft:
                 y = np.pad(y, (0, N_fft - len(y)), 'constant')
             
-            Y = np.fft.rfft(y)
+            window = np.hanning(len(y))
+            y_win = y * window
+            Y = np.fft.rfft(y_win)
             Y_mag_db = 20 * np.log10(np.abs(Y) / len(Y) + 1e-12)
             freqs = np.fft.rfftfreq(N_fft, d=1.0/self.SAMPLE_RATE)
 
