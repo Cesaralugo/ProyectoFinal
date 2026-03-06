@@ -86,9 +86,10 @@ class MainWindow(QWidget):
         self.toggle_fft_btn.setCheckable(True)
         self.toggle_fft_btn.clicked.connect(self.toggle_fft)
         self.right_layout.addWidget(self.toggle_fft_btn)
-        self.save_wav_btn = QPushButton("Save WAV")
-        self.save_wav_btn.clicked.connect(lambda: self.save_wav("my_signal.wav"))
+        desktop_path = "/mnt/c/Users/hp/Desktop/my_signal.wav"
+        self.save_wav_btn.clicked.connect(lambda: self.save_wav(desktop_path))
         self.right_layout.addWidget(self.save_wav_btn)
+
         # Estado inicial
         self.show_fft = False
 
@@ -157,22 +158,25 @@ class MainWindow(QWidget):
         print("JSON ready for C++: ")
         print(self.model.to_json())
 
-    def save_wav(self, filename="output.wav"):
-        # Tomar la señal post-efecto
-        y = list(self.signal_buffer)
+    # Método save_wav actualizado
+    def save_wav(self, filename):
+        # Tomar los últimos 5 segundos de señal
+        N = min(len(self.signal_buffer), self.SAMPLE_RATE*5)
+        y = list(self.signal_buffer)[-N:]
 
-        # Normalizar a rango -1..1 si es que ya no lo está
+        # Normalizar a -1..1
         max_val = max(abs(np.min(y)), abs(np.max(y)), 1e-12)
         y_norm = [v / max_val for v in y]
 
         # Convertir a PCM 16 bits
         y_int16 = [int(v * 32767) for v in y_norm]
 
-        # Crear archivo WAV
+        # Guardar WAV
+        import wave, struct
         with wave.open(filename, 'w') as wf:
-            wf.setnchannels(1)                 # mono
-            wf.setsampwidth(2)                 # 16 bits = 2 bytes
-            wf.setframerate(self.SAMPLE_RATE)  # frecuencia de muestreo
+            wf.setnchannels(1)
+            wf.setsampwidth(2)           # 16 bits
+            wf.setframerate(self.SAMPLE_RATE)
             wf.writeframes(struct.pack('<' + 'h'*len(y_int16), *y_int16))
 
         print(f"WAV guardado como {filename}")
