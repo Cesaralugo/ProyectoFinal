@@ -168,8 +168,8 @@ class MainWindow(QWidget):
             # Señal en el tiempo
             self.plot_post.setLabel("bottom", "Time")
             self.plot_post.setLabel("left", "Amplitude")
-            self.curve_pre.setData(x, list(self.pre_buffer))
-            self.curve_post.setData(x, list(self.signal_buffer))
+            self.curve_pre.setData(self.x, list(self.pre_buffer))
+            self.curve_post.setData(self.x, list(self.signal_buffer))
         else:
             # FFT de la señal post-efecto
             self.plot_post.setLabel("bottom", "Frequency (Hz)")
