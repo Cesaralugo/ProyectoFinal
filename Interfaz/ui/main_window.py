@@ -55,12 +55,12 @@ class MainWindow(QWidget):
             "Chorus",
             "PitchShifter"
         ]
-        
+
         self.add_effect_box = QComboBox()
         self.add_effect_box.addItems(self.available_effects)
 
         self.add_effect_btn = QPushButton("Add Effect")
-        self.add_effect_btn.clicked.connect(self.add_effect_btn)
+        self.add_effect_btn.clicked.connect(self.add_effect)
 
         self.left_layout.addWidget(self.add_effect_box)
         self.left_layout.addWidget(self.add_effect_btn)
