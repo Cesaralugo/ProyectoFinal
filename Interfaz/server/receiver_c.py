@@ -4,6 +4,7 @@ import struct
 import threading
 import os
 import time
+import json
 
 class SocketReceiver(QObject):
     pre_received = pyqtSignal(float)
@@ -13,15 +14,16 @@ class SocketReceiver(QObject):
         super().__init__()
         self.socket_path = socket_path
         self.running = False
+        self.client = None
 
     def start(self):
         self.running = True
         threading.Thread(target=self._run, daemon=True).start()
 
     def _run(self):
-        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client = self.client
 
-        # Espera a que el socket exista y el servidor esté listo
         while self.running:
             try:
                 if os.path.exists(self.socket_path):
@@ -51,6 +53,16 @@ class SocketReceiver(QObject):
                 self.post_received.emit(post)
         finally:
             client.close()
+
+    def send_json(self, json_data):
+        if self.client is None:
+            return
+        try:
+            msg = (json_data + "\n").encode('utf-8')
+            self.client.sendall(msg)
+        except BrokenPipeError:
+            print("Socket cerrado")
+
 
     def stop(self):
         self.running = False

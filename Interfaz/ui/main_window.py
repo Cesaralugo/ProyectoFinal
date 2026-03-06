@@ -55,7 +55,7 @@ class MainWindow(QWidget):
         self.model = PresetModel("Preset1")
 
         initial_effects = [
-            {"id": "fx_1", "type": "Distortion", "enabled": True,
+            {"id": "fx_1", "type": "Overdrive", "enabled": True,
             "params": {"GAIN": 0.5, "TONE": 0.5, "OUTPUT": 0.5}},
 
             {"id": "fx_2", "type": "Delay", "enabled": True,
@@ -196,9 +196,13 @@ class MainWindow(QWidget):
         print("MainWindow updating model")
 
         self.model.update_param(effect_id, param, value)
+        
+        json_data =self.model.to_json
 
         print("JSON ready for C++:")
-        print(self.model.to_json())
+        print(json_data)
+
+        self.receiver.send_json(json_data)
         
     def toggle_fft(self):
         self.show_fft = self.toggle_fft_btn.isChecked()

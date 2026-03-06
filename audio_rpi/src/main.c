@@ -2,6 +2,7 @@
 #include <math.h>
 #include <unistd.h> 
 #include "../include/socket_server.h"
+#include <string.h>
 
 #include "../include/delay.h"
 #include "../include/overdrive.h"
@@ -11,6 +12,7 @@
 #include "../include/pitch_shifter.h"
 
 #define SAMPLE_RATE 44100
+char json_buffer[4096];
 
 int main()
 {
@@ -34,10 +36,26 @@ int main()
 
 
     socket_init();
+    
+    int i = 0;
+    while (1){
+        int n = socket_receive(json_buffer, sizeof(json_buffer));
+        
+        if (n > 0){
 
-    for (int i = 0; i < SAMPLE_RATE; i++)
-    {
+            if (strstr(json_buffer, "Overdrive")) {
+                printf("Preset contiene Overdrive\n");
+            }
+
+            if (strstr(json_buffer, "Delay")) {
+                printf("Preset contiene Delay\n");
+            }
+
+        }
+    
         float input = (sinf(2.0f * PI * 440.0f * i / SAMPLE_RATE) > 0) ? 1.0f : -1.0f;  
+        i++;
+        if (i > SAMPLE_RATE) i = 0;
 
         float od_out  = Overdrive_process(&od, input);  
         float wah_out = Wah_process(&wah, od_out);       
