@@ -162,7 +162,7 @@ class MainWindow(QWidget):
 
     # Recepción de señales
     def sim_signal(self):
-        x_ = np.arange(len(self.signal_buffer))
+        x = np.arange(len(self.signal_buffer))
 
         if not self.show_fft:
             # Señal en el tiempo
