@@ -47,6 +47,15 @@ class MainWindow(QWidget):
         self.left_layout.addWidget(self.preset_dropdown)
 
         #Effects Dropdown
+        self.available_effects = [
+            "Overdrive",
+            "Delay",
+            "Wah",
+            "Flanger",
+            "Chorus",
+            "PitchShifter"
+        ]
+        
         self.add_effect_box = QComboBox()
         self.add_effect_box.addItems(self.available_effects)
 
@@ -85,15 +94,6 @@ class MainWindow(QWidget):
 
         self.model.set_effects(initial_effects)
 
-        #Efectos Disponibles
-        self.available_effects = [
-            "Overdrive",
-            "Delay",
-            "Wah",
-            "Flanger",
-            "Chorus",
-            "PitchShifter"
-        ]
 
         #Cargar efectos
         self.load_effects()
