@@ -163,17 +163,19 @@ class MainWindow(QWidget):
         self.receiver.send_json(json_data)
 
     def remove_effect(self, effect_id):
-
         print("Removing effect:", effect_id)
 
         self.model.effects = [
             e for e in self.model.effects if e["id"] != effect_id
         ]
 
+        self.signal_buffer.clear()
+        self.pre_buffer.clear()  
+
         self.load_effects()
 
         json_data = self.model.to_json()
-        self.receiver.send_json(json_data)        
+        self.receiver.send_json(json_data)  
     
     #Cargar efectos
     def load_effects(self):
