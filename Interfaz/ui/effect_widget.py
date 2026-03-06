@@ -2,6 +2,9 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QSlider, 
 from PyQt6.QtCore import Qt, pyqtSignal
 
 class EffectWidget(QWidget):
+    param_changed = pyqtSignal(str, str, float)
+    delete_requested = pyqtSignal(str)
+
     def __init__(self, effect_data):
         super().__init__()
 
@@ -22,7 +25,7 @@ class EffectWidget(QWidget):
 
         #Boton para borrar efectos
         self.delete_button = QPushButton("Delete")
-        self.delete_button.clicked.connect(self.delete_button)
+        self.delete_button.clicked.connect(self.delete_self)
         self.main_layout.addWidget(self.delete_button)
 
         #Parametros
@@ -97,5 +100,3 @@ class EffectWidget(QWidget):
 
         self.param_changed.emit(self.effect_id, param, real_value)
 
-    param_changed = pyqtSignal(str, str, float)
-    delete_requested = pyqtSignal(str)
