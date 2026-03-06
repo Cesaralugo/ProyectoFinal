@@ -2,6 +2,8 @@ import sys
 import numpy as np
 import pyqtgraph as pg
 import json
+import wave
+import struct
 
 from ui.effect_widget import EffectWidget
 from core.preset_model import PresetModel
@@ -26,8 +28,8 @@ class MainWindow(QWidget):
         self.receiver.post_received.connect(self.update_buffer)
         self.receiver.start()
 
-        self.pre_buffer = deque([0]*500, maxlen=1000)
-        self.signal_buffer = deque([0]*500, maxlen=1000)
+        self.pre_buffer = deque([0]*500, maxlen=44100*5)
+        self.signal_buffer = deque([0]*500, maxlen=44100*5)
 
 
 
@@ -84,7 +86,9 @@ class MainWindow(QWidget):
         self.toggle_fft_btn.setCheckable(True)
         self.toggle_fft_btn.clicked.connect(self.toggle_fft)
         self.right_layout.addWidget(self.toggle_fft_btn)
-        
+        self.save_wav_btn = QPushButton("Save WAV")
+        self.save_wav_btn.clicked.connect(lambda: self.save_wav("my_signal.wav"))
+        self.right_layout.addWidget(self.save_wav_btn)
         # Estado inicial
         self.show_fft = False
 
@@ -152,6 +156,26 @@ class MainWindow(QWidget):
     def generate_json(self):
         print("JSON ready for C++: ")
         print(self.model.to_json())
+
+    def save_wav(self, filename="output.wav"):
+        # Tomar la señal post-efecto
+        y = list(self.signal_buffer)
+
+        # Normalizar a rango -1..1 si es que ya no lo está
+        max_val = max(abs(np.min(y)), abs(np.max(y)), 1e-12)
+        y_norm = [v / max_val for v in y]
+
+        # Convertir a PCM 16 bits
+        y_int16 = [int(v * 32767) for v in y_norm]
+
+        # Crear archivo WAV
+        with wave.open(filename, 'w') as wf:
+            wf.setnchannels(1)                 # mono
+            wf.setsampwidth(2)                 # 16 bits = 2 bytes
+            wf.setframerate(self.SAMPLE_RATE)  # frecuencia de muestreo
+            wf.writeframes(struct.pack('<' + 'h'*len(y_int16), *y_int16))
+
+        print(f"WAV guardado como {filename}")
 
 
     def update_buffer(self, value):
