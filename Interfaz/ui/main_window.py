@@ -157,8 +157,8 @@ class MainWindow(QWidget):
 
     def update_pre_buffer(self, value):
         self.pre_buffer.append(value)
-        if len(self.signal_buffer) % 200 == 0:
-            print("post buffer:", len(self.signal_buffer))
+        #if len(self.signal_buffer) % 200 == 0:
+            #print("post buffer:", len(self.signal_buffer))
 
     # Recepción de señales
     def sim_signal(self):
