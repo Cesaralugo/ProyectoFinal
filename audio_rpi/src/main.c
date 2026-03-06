@@ -50,18 +50,30 @@ int main()
         char *p;
 
         p = strstr(json_buffer, "\"GAIN\"");
-        if (p && sscanf(p, "\"GAIN\": %f", &gain) == 1) {
-            od.gain = gain * 10.0f;   
+        if (p) {
+            p = strchr(p, ':');   // buscar los :
+            if (p) {
+                sscanf(p+1, "%f", &gain);
+                od.gain = gain * 10.0f;
+            }
         }
 
         p = strstr(json_buffer, "\"TONE\"");
-        if (p && sscanf(p, "\"TONE\": %f", &tone) == 1) {
-            od.tone = tone;
+        if (p) {
+            p = strchr(p, ':');
+            if (p) {
+                sscanf(p+1, "%f", &tone);
+                od.tone = tone;
+            }
         }
 
         p = strstr(json_buffer, "\"OUTPUT\"");
-        if (p && sscanf(p, "\"OUTPUT\": %f", &output) == 1) {
-            od.output = output;
+        if (p) {
+            p = strchr(p, ':');
+            if (p) {
+                sscanf(p+1, "%f", &output);
+                od.output = output;
+            }
         }
 
         printf("Parsed OD -> gain:%f tone:%f output:%f\n", gain, tone, output);
