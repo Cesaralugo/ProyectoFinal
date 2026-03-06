@@ -35,7 +35,8 @@ int socket_receive(char *buffer, int max_len){
     if (n > 0){
         buffer[n] = '\0';
     }
-    return 0;
+    
+    return n;
 }
 
 int socket_send_two_floats(float pre, float post) {
