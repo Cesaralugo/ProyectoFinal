@@ -180,7 +180,7 @@ class MainWindow(QWidget):
             y = np.array(self.signal_buffer, dtype=float)
             
             # Zero-padding
-            N_fft = 2048
+            N_fft = 4096
             if len(y) < N_fft:
                 y = np.pad(y, (0, N_fft - len(y)), 'constant')
             
