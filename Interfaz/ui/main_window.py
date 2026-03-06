@@ -227,9 +227,8 @@ class MainWindow(QWidget):
         self.curve_pre.setData(x_pre, list(self.pre_buffer))
 
         if len(self.model.effects) == 0:
-            # No hay efectos: salida a cero
-            zeros = np.zeros(len(x_post))
-            self.curve_post.setData(x_post, zeros)
+            pre_signal = np.array(self.pre_buffer, dtype=float)
+            self.curve_post.setData(x_post, pre_signal)
         else:
             if not self.show_fft:
                 # Señal en el tiempo con efectos
