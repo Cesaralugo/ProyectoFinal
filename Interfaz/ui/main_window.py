@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPu
 from PyQt6.QtCore import QTimer, Qt
 
 class MainWindow(QWidget):
-    SAMPLE_RATE = 41100  
+    SAMPLE_RATE = 44100  
 
     def __init__(self):
         super().__init__()  
@@ -180,15 +180,15 @@ class MainWindow(QWidget):
             y = np.array(self.signal_buffer, dtype=float)
             
             # Zero-padding
-            N_fft = 4096
+            N_fft = 40964
             if len(y) < N_fft:
                 y = np.pad(y, (0, N_fft - len(y)), 'constant')
             
             Y = np.fft.rfft(y)
-            Y_mag = np.abs(Y) / len(Y)
+            Y_mag_db = 20 * np.log10(np.abs(Y) / len(Y) + 1e-12)
             freqs = np.fft.rfftfreq(N_fft, d=1.0/self.SAMPLE_RATE)
 
-            self.curve_post.setData(freqs, Y_mag)
+            self.curve_post.setData(freqs, Y_mag_db)
             self.curve_pre.setData(x, list(self.pre_buffer))
 
     def handle_param_change(self, effect_id, param, value):
