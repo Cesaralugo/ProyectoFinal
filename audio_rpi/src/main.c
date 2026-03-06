@@ -86,10 +86,10 @@ int main()
             i = 0;
 
         float od_out  = Overdrive_process(&od, input);  
-        float wah_out = Wah_process(&wah, od_out);       
-        float post    = Chorus_process(&ch, wah_out);    
+        //float wah_out = Wah_process(&wah, od_out);       
+        //float post    = Chorus_process(&ch, wah_out);    
 
-        socket_send_two_floats(input, post);
+        socket_send_two_floats(input, od_out);
         usleep(22);
     }   
 
