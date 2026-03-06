@@ -41,7 +41,6 @@ int main()
     int i = 0;
     while (1){
         int n = socket_receive(json_buffer, sizeof(json_buffer)-1);
-        json_buffer[n] = '\0';
         
     if (n > 0){
 
@@ -91,7 +90,7 @@ int main()
         float post    = Chorus_process(&ch, wah_out);    
 
         socket_send_two_floats(input, post);
-        usleep(1000);
+        usleep(22);
     }   
 
     socket_close();
