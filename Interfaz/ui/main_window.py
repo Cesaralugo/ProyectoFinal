@@ -64,6 +64,12 @@ class MainWindow(QWidget):
 
             {"id": "fx_4", "type": "Flanger", "enabled": True,
             "params": {"RATE": 0.5, "DEPTH": 0.3, "FEEDBACK": 0.2, "MIX": 0.5}},
+
+            {"id": "fx_5", "type": "Chorus", "enabled": True,
+            "params": {"RATE": 0.5, "DEPTH": 0.5, "MIX": 0.5}},
+
+            {"id": "fx_6", "type": "PitchShifter", "enabled": True,
+            "params": {"SEMITONES": 0.5, "MIX": 0.5}}
         ]
 
         self.model.set_effects(initial_effects)
