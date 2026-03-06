@@ -33,9 +33,7 @@ int main()
 
     for (int i = 0; i < SAMPLE_RATE; i++)
     {
-        float input = 0.5f * sinf(2.0f * PI * 440.0f * i / SAMPLE_RATE)     // fundamental
-                    + 0.3f * sinf(2.0f * PI * 880.0f * i / SAMPLE_RATE)     // 2do armónico
-                    + 0.2f * sinf(2.0f * PI * 1320.0f * i / SAMPLE_RATE);   // 3er armónico
+        float input = (sinf(2.0f * PI * 440.0f * i / SAMPLE_RATE) > 0) ? 1.0f : -1.0f;  
         //float od_out = Overdrive_process(&od, input);
         //float ch_out = Chorus_process(&ch, input);
 
