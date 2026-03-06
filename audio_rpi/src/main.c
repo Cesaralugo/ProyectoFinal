@@ -35,7 +35,7 @@ int main()
 
         socket_send_two_floats(input, post);
         usleep(1000);
-    }
+    }   
 
     socket_close();
     
