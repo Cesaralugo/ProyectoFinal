@@ -36,9 +36,9 @@ int main()
         float input = sinf(2.0f * PI * 440.0f * i / SAMPLE_RATE);
 
         //float od_out = Overdrive_process(&od, input);
-        float ch_out = Chorus_process(&ch, input);
+        //float ch_out = Chorus_process(&ch, input);
 
-        float post = Delay_process(&delay, ch_out);
+        float post = Delay_process(&delay, input);
 
         socket_send_two_floats(input, post);
         usleep(1000);
