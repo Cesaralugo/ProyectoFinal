@@ -1,7 +1,7 @@
 #ifndef FLANGER_H
 #define FLANGER_H
 
-#define SAMPLE_RATE 41100
+#define SAMPLE_RATE 44100
 
 #ifndef PI
 #define PI 3.14159265358979323846f

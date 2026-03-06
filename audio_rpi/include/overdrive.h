@@ -1,7 +1,7 @@
 #ifndef OVERDRIVE_H
 #define OVERDRIVE_H
 
-#define SAMPLE_RATE 41100
+#define SAMPLE_RATE 44100
 
 
 typedef struct {

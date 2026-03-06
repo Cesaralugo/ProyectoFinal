@@ -7,9 +7,10 @@
 #include "../include/overdrive.h"
 #include "../include/wah.h"
 #include "../include/chorus.h"
+#include "../include/flanger.h"
+#include "../include/pitch_shifter.h"
 
-
-#define SAMPLE_RATE 41100
+#define SAMPLE_RATE 44100
 
 int main()
 {
@@ -21,6 +22,11 @@ int main()
     Wah_init(&wah, 2.0f, 3.0f, 0.9f);
     Chorus ch;
     Chorus_init(&ch,0.8f, 0.7f, 0.5f);
+    Flanger flanger;
+    Flanger_init(&flanger, 0.25f, 0.7f, 0.3f, 0.5f); // rate, depth, feedback, mix
+
+    PitchShifter pitch;
+    PitchShifter_init(&pitch, 7.0f, 0.5f); // +7 semitonos, mix 50%
 
 
     socket_init();
@@ -29,9 +35,10 @@ int main()
     {
         float input = sinf(2.0f * PI * 440.0f * i / SAMPLE_RATE);
 
-        float od_out = Overdrive_process(&od, input);
+        //float od_out = Overdrive_process(&od, input);
+        float ch_out = Chorus_process(&ch, input);
 
-        float post = Delay_process(&delay, od_out);
+        float post = Delay_process(&delay, ch_out);
 
         socket_send_two_floats(input, post);
         usleep(1000);

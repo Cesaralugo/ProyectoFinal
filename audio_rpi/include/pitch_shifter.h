@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <math.h>
 
-#define SAMPLE_RATE 41100
+#define SAMPLE_RATE 44100
 #define PI 3.14159265358979323846f
 #define PITCH_MAX_DELAY_MS 100
 #define MAX_GRAINS 3
@@ -20,7 +20,7 @@ typedef struct {
     int grainOffsets[MAX_GRAINS];
 } PitchShifter;
 
-void PitchShifterH9_init(PitchShifter *ps, float semitones, float mix);
-float PitchShifterH9_process(PitchShifter *ps, float input);
+void PitchShifter_init(PitchShifter *ps, float semitones, float mix);
+float PitchShifter_process(PitchShifter *ps, float input);
 
 #endif

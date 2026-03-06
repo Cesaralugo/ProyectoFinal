@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define MAX_DELAY_MS 1000
-#define SAMPLE_RATE 41100
+#define SAMPLE_RATE 44100
 
 typedef struct {
     float buffer[SAMPLE_RATE * MAX_DELAY_MS / 1000];
