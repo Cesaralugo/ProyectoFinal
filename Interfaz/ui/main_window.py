@@ -73,23 +73,6 @@ class MainWindow(QWidget):
         self.model = PresetModel("Preset1")
 
         initial_effects = [
-            {"id": "fx_1", "type": "Overdrive", "enabled": True,
-            "params": {"GAIN": 0.5, "TONE": 0.5, "OUTPUT": 0.5}},
-
-            {"id": "fx_2", "type": "Delay", "enabled": True,
-            "params": {"TIME": 0.5, "FEEDBACK": 0.3, "MIX": 0.2}},
-
-            {"id": "fx_3", "type": "Wah", "enabled": True,
-            "params": {"FREQ": 0.5, "Q": 0.3, "LEVEL": 0.2}},
-
-            {"id": "fx_4", "type": "Flanger", "enabled": True,
-            "params": {"RATE": 0.5, "DEPTH": 0.3, "FEEDBACK": 0.2, "MIX": 0.5}},
-
-            {"id": "fx_5", "type": "Chorus", "enabled": True,
-            "params": {"RATE": 0.5, "DEPTH": 0.5, "MIX": 0.5}},
-
-            {"id": "fx_6", "type": "PitchShifter", "enabled": True,
-            "params": {"SEMITONES": 0.5, "MIX": 0.5}}
         ]
 
         self.model.set_effects(initial_effects)
