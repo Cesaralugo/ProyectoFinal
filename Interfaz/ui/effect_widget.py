@@ -28,11 +28,11 @@ class EffectWidget(QWidget):
         self.expanded = False
 
         self.main_layout = QVBoxLayout()
-        self.setLayout(self.main_layout)
 
         # HEADER con nombre + "x"
         self.header_widget = QWidget()
         self.header_layout = QHBoxLayout()
+        self.header_widget.setLayout(self.header_layout)
         self.header_layout.setContentsMargins(0, 0, 0, 0)
         self.header_layout.setSpacing(5)
         self.header_widget.setStyleSheet("""
@@ -41,12 +41,14 @@ class EffectWidget(QWidget):
             padding: 6px;
         """)
         self.header_widget.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setLayout(self.main_layout)
+
         
         #Linea divisoria
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)
-        self.main_layout.insertWidget(1, line)  
+        self.main_layout.addWidget(line)  
 
         # Label con el nombre del efecto
         self.header_label = QLabel(effect_data["type"])
