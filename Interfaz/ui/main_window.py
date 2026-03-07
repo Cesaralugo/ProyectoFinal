@@ -68,6 +68,15 @@ class MainWindow(QWidget):
         
         #Lista de efectos
         self.effects_list = QListWidget()
+        self.effects_list.setStyleSheet("""
+        QListWidget::item:selected {
+            background: #dcdcdc;
+        }
+
+        QListWidget::item:hover {
+            background: #e6e6e6;
+        }
+        """)
         self.effects_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.effects_list.model().rowsMoved.connect(self.update_effect_order)
         self.model = PresetModel("Preset1")
