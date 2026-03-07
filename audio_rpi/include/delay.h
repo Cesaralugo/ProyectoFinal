@@ -12,6 +12,7 @@ typedef struct {
     int delaySamples;
     float feedback;
     float mix;
+    float delay_ms;
 } Delay;
 
 void Delay_init(Delay *d, float delay_ms, float feedback, float mix);

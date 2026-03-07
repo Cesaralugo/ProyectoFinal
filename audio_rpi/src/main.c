@@ -56,11 +56,11 @@ int main()
 
         // Wah
         { "WAH", "FREQ",    &wah.freq,    1.0f, 0.0f },
-        { "WAH", "DEPTH",   &wah.depth,   1.0f, 0.0f },
-        { "WAH", "RESONANCE",&wah.resonance, 1.0f, 0.0f },
+        { "WAH", "Q",   &wah.q,   1.0f, 0.0f },
+        { "WAH", "LEVEL",&wah.level, 1.0f, 0.0f },
 
         // Delay
-        { "DELAY", "TIME",     &delay.time,     1.0f, 0.0f },
+        { "DELAY", "TIME",     &delay.delay_ms,     1.0f, 0.0f },
         { "DELAY", "FEEDBACK", &delay.feedback, 1.0f, 0.0f },
         { "DELAY", "MIX",      &delay.mix,      1.0f, 0.0f },
 
