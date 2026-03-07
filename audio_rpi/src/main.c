@@ -170,17 +170,17 @@ int main()
 
         // Cadena de efectos — comenta/descomenta segun necesites
         float od_out    = Overdrive_process(&od, input);
-        //float wah_out   = Wah_process(&wah, od_out);
+        float wah_out   = Wah_process(&wah, od_out);
         //float ch_out    = Chorus_process(&ch, od_out);
         //float fl_out    = Flanger_process(&flanger, od_out);
         //float pit_out   = PitchShifter_process(&pitch, od_out);
         //float del_out   = Delay_process(&delay, od_out);
 
         if (i % 3000 == 0) {
-            printf("audio: input=%f od=%f\n", input, od_out);
+            printf("audio: input=%f od=%f\n", input, wah_out);
         }
 
-        socket_send_two_floats(input, od_out);
+        socket_send_two_floats(input, wah_out);
         usleep(22);
     }
 
