@@ -53,6 +53,7 @@ class EffectWidget(QWidget):
         # Label con el nombre del efecto
         self.header_label = QLabel(effect_data["type"])
         self.header_label.setStyleSheet("""
+            font-family: Arial;
             font-weight: bold;
             font-size: 11pt;
             color: #333;
