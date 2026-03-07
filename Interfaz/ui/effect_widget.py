@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QSlider
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QSlider, QFrame
 from PyQt6.QtCore import Qt, pyqtSignal
 
 class EffectWidget(QWidget):
@@ -35,11 +35,26 @@ class EffectWidget(QWidget):
         self.header_layout = QHBoxLayout()
         self.header_layout.setContentsMargins(0, 0, 0, 0)
         self.header_layout.setSpacing(5)
+        self.header_widget.setStyleSheet("""
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            padding: 4px;
+        """)
         self.header_widget.setLayout(self.header_layout)
+        
+        #Linea divisoria
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        self.main_layout.insertWidget(1, line)  
 
         # Label con el nombre del efecto
         self.header_label = QLabel(effect_data["type"])
-        self.header_label.setStyleSheet("font-weight: bold;")
+        self.header_label.setStyleSheet("""
+            font-weight: bold;
+            font-size: 12pt;
+            padding-left: 4px;
+        """)
         self.header_label.mousePressEvent = self.toggle_expand  
         self.header_layout.addWidget(self.header_label)
 
