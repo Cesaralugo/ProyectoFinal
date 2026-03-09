@@ -1,60 +1,82 @@
-# flutter_application_2
-# Aceptame en el repo
+# Proyecto Final
 
-A new Flutter project.
+Este proyecto contiene una interfaz en **PyQt6**, procesamiento de audio y comunicación entre diferentes módulos del sistema.
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-
-sudo apt install -y \
-    libqt6gui6 \
-    libqt6widgets6 \
-    libqt6core6 \
-    libgl1 \
-    libatlas-base-dev \
-    libxcb-xinerama0
-
-python3 -m venv audio_env
-source audio_env/bin/activate
-
-pip install PyQt6 pyqtgraph numpy
-
-si Could not load the Qt platform plugin "xcb"
-
-sudo apt install libxcb-cursor0 -y
-
-python3 -c "from PyQt6.QtWidgets import QApplication; print('Qt OK')"
-
-import os
-os.environ["QT_OPENGL"] = "software"
+## Requisitos
+Python 3
+pip
+make
 
 
-pip install pyserial sounddevice numpy
+Dependencias de Python:
 
-import serial
-import numpy as np
-import sounddevice as sd
+PyQt6
+numpy
+zeroconf
 
-ser = serial.Serial('COM3', 921600)  # cambia COM3
+## Instalación
 
-sample_rate = 8000
+Entrar a la carpeta de la interfaz:
 
-while True:
-    data = ser.read(2 * 1024)  # leer 1024 muestras (2 bytes c/u)
-    samples = np.frombuffer(data, dtype=np.uint16)
+```
+cd Interfaz
+```
 
-    # convertir 0–4095 a -1.0 a 1.0
-    samples = (samples - 2048) / 2048.0
+Crear el entorno virtual:
 
-    sd.play(samples, sample_rate)
-    sd.wait()
+```
+python3 -m venv venv
+```
+
+Activar el entorno:
+
+Linux 
+
+```
+source venv/bin/activate
+```
+
+Instalar dependencias:
+
+```
+pip install -r requirements.txt
+```
+
+## Compilar audio (IMPORTANTE)
+
+Cada vez que se haga un **git pull**, es necesario recompilar el módulo de audio.
+
+Entrar a la carpeta:
+
+```
+cd audio_rpi
+```
+
+y ejecutar:
+
+```
+make
+```
+
+## Ejecutar todo el sistema
+
+Para correr todos los módulos del proyecto se usa el script:
+
+```
+run_all.sh
+```
+
+La primera vez hay que darle permisos de ejecución:
+
+```
+chmod +x run_all.sh
+```
+
+Luego se ejecuta con:
+./run_all.sh
+
+
+## Notas
+
+Si se actualiza el repositorio con `git pull`, se recomienda volver a ejecutar `make` en `audio_rpi`.
+El entorno virtual debe activarse antes de ejecutar la interfaz. Leer requirements.txt
