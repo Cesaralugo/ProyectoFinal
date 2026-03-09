@@ -88,7 +88,11 @@ class EffectWidget(QWidget):
             slider.setValue(slider_value)
 
             slider.valueChanged.connect(
-                lambda val, p=param, l=label: self.update_param(p, val, l)
+                lambda val, p=param, l=label: self.update_label_only(p, val, l)
+            )
+
+            slider.sliderReleased.connect(
+                lambda p=param, s=slider, l=label: self.update_param(p, s.value(), l)
             )
 
             self.params_Layout.addWidget(label)
@@ -114,3 +118,8 @@ class EffectWidget(QWidget):
         real_value = min_val + (value / 100) * (max_val - min_val)
         label.setText(f"{param}: {round(real_value,2)} {unit}")
         self.param_changed.emit(self.effect_id, param, real_value)
+    
+    def update_label_only(self, param, value, label):
+        min_val, max_val, unit = self.PARAM_RANGES.get(param, (0, 1, ""))
+        real_value = min_val + (value / 100) * (max_val - min_val)
+        label.setText(f"{param}: {round(real_value, 2)} {unit}")
