@@ -16,7 +16,7 @@
 
 // Puerto serial del ESP32 — ajusta según tu sistema
 // Ejemplos: "/dev/ttyUSB0", "/dev/ttyACM0"
-#define SERIAL_PORT "/dev/ttyUSB0"
+#define SERIAL_PORT NULL   // autodetecta ttyUSB0/1/2, ttyACM0/1/2
 #define SERIAL_BAUD  460800
 
 char json_buffer[4096];
