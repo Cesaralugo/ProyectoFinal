@@ -6,7 +6,12 @@
 // Debe coincidir con PACKET_SAMPLES del sketch Arduino
 #define SERIAL_PACKET_SAMPLES  128
 
-// Abre el puerto serial. Devuelve el fd o -1 en error.
+// Busca el primer puerto ttyUSB* / ttyACM* disponible.
+// Devuelve el path (ej: "/dev/ttyUSB1") o NULL si no hay ninguno.
+const char *serial_autodetect(void);
+
+// Abre el puerto serial. Si port == NULL, autodetecta.
+// Devuelve el fd o -1 en error.
 int  serial_open(const char *port, int baud);
 
 // Cierra el puerto serial.
