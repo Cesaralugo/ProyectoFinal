@@ -4,10 +4,17 @@ import struct
 import threading
 import os
 import time
-import json
+
+BATCH_SIZE = 128   # debe coincidir con SERIAL_PACKET_SAMPLES en C
 
 class SocketReceiver(QObject):
-    pre_received = pyqtSignal(float)
+    # Ahora emite arrays numpy-compatibles (lista de floats) en vez de un float
+    # para evitar 22 000 señales Qt por segundo
+    batch_received = pyqtSignal(list, list)   # (pre_batch, post_batch)
+
+    # Señales legacy — se siguen emitiendo para no romper código existente,
+    # pero solo con el PRIMER sample del lote (para quien las use aún)
+    pre_received  = pyqtSignal(float)
     post_received = pyqtSignal(float)
 
     def __init__(self, socket_path="/tmp/audio_socket"):
@@ -33,25 +40,36 @@ class SocketReceiver(QObject):
                 pass
             time.sleep(0.05)
 
-        def recv_two_floats(sock):
+        # Cada lote = BATCH_SIZE pares de float32 = BATCH_SIZE * 2 * 4 bytes
+        BATCH_BYTES = BATCH_SIZE * 2 * 4
+
+        def recv_exact(sock, n):
             data = b''
-            while len(data) < 8:  # 2 floats × 4 bytes
-                packet = sock.recv(8 - len(data))
-                if not packet:
-                    return None, None
-                data += packet
-            pre, post = struct.unpack('<ff', data)
-            return pre, post
+            while len(data) < n:
+                chunk = sock.recv(n - len(data))
+                if not chunk:
+                    return None
+                data += chunk
+            return data
 
         try:
             while self.running:
-                pre, post = recv_two_floats(client)
-                if pre is None:
+                raw = recv_exact(client, BATCH_BYTES)
+                if raw is None:
                     time.sleep(0.05)
                     continue
-                #print("audio:", pre, post)
-                self.pre_received.emit(pre)
-                self.post_received.emit(post)
+
+                # Desempaquetar BATCH_SIZE * 2 floats intercalados [pre0,post0,pre1,post1,...]
+                floats = struct.unpack(f'<{BATCH_SIZE * 2}f', raw)
+                pre_batch  = floats[0::2]   # índices pares
+                post_batch = floats[1::2]   # índices impares
+
+                self.batch_received.emit(list(pre_batch), list(post_batch))
+
+                # Legacy: emitir solo el primer sample para compatibilidad
+                self.pre_received.emit(pre_batch[0])
+                self.post_received.emit(post_batch[0])
+
         finally:
             client.close()
 
@@ -63,7 +81,6 @@ class SocketReceiver(QObject):
             self.client.sendall(msg)
         except BrokenPipeError:
             print("Socket cerrado")
-
 
     def stop(self):
         self.running = False

@@ -22,8 +22,7 @@ class MainWindow(QWidget):
         
         #Conexión con C
         self.receiver = SocketReceiver()
-        self.receiver.pre_received.connect(self.update_pre_buffer)
-        self.receiver.post_received.connect(self.update_buffer)
+        self.receiver.batch_received.connect(self.update_buffers_batch)
         self.receiver.start()
 
         self.pre_buffer = deque(maxlen=1000)
@@ -127,6 +126,10 @@ class MainWindow(QWidget):
         self.server = TcpServer()
         self.server.json_received.connect(self.handle_remote_json)
         self.server.start()
+
+    def update_buffers_batch(self, pre_batch, post_batch):
+        self.pre_buffer.extend(pre_batch)
+        self.signal_buffer.extend(post_batch)
 
     def update_effect_order(self, *args):
         new_order = []
