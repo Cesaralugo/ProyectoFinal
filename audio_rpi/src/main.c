@@ -2,7 +2,7 @@
 #include <math.h>
 #include <unistd.h>
 #include "../include/socket_server.h"
-#include "../include/serial_input.h"   // <-- nuevo
+#include "../include/serial_input.h"
 #include <string.h>
 
 #include "../include/delay.h"
@@ -13,17 +13,18 @@
 #include "../include/pitch_shifter.h"
 
 #define SAMPLE_RATE 44100
+#define PI 3.14159265358979323846f
 
-// Puerto serial del ESP32 — ajusta según tu sistema
-// Ejemplos: "/dev/ttyUSB0", "/dev/ttyACM0"
-#define SERIAL_PORT NULL   // autodetecta ttyUSB0/1/2, ttyACM0/1/2
+// ── Modo de entrada ───────────────────────────────────────────────────────────
+// SIM_MODE 1 → señal sin() simulada a 440 Hz (sin ESP32, para desarrollo)
+// SIM_MODE 0 → lectura real desde ESP32 por serial
+#define SIM_MODE 1
+
+#define SERIAL_PORT NULL    // autodetecta ttyUSB0/1/2, ttyACM0/1/2
 #define SERIAL_BAUD  460800
 
 char json_buffer[4096];
 
-// =============================================================================
-// IDs de efectos
-// =============================================================================
 #define FX_OVERDRIVE     0
 #define FX_WAH           1
 #define FX_DELAY         2
@@ -36,9 +37,6 @@ int enabled[FX_COUNT]  = {0};
 int fx_order[FX_COUNT] = {0};
 int fx_order_count     =  0;
 
-// =============================================================================
-// ParamMap
-// =============================================================================
 typedef struct {
     const char *effect_key;
     const char *param_key;
@@ -48,9 +46,6 @@ typedef struct {
     float       offset;
 } ParamMap;
 
-// =============================================================================
-// process_effect
-// =============================================================================
 float process_effect(int fx_id, float sig,
                      Overdrive *od, Wah *wah, Chorus *ch,
                      Flanger *flanger, PitchShifter *pitch, Delay *delay)
@@ -68,9 +63,6 @@ float process_effect(int fx_id, float sig,
 
 int main()
 {
-    // -------------------------------------------------------------------------
-    // Inicializacion de efectos
-    // -------------------------------------------------------------------------
     Delay delay;        Delay_init(&delay, 20.0f, 0.5f, 0.4f);
     Overdrive od;       Overdrive_init(&od, 0.0f, 0.0f, 0.0f);
     Wah wah;            Wah_init(&wah, 2.0f, 3.0f, 0.9f);
@@ -100,26 +92,26 @@ int main()
     };
     int map_size = sizeof(map) / sizeof(map[0]);
 
-    // -------------------------------------------------------------------------
-    // Abrir serial
-    // -------------------------------------------------------------------------
+#if SIM_MODE == 0
     int serial_fd = serial_open(SERIAL_PORT, SERIAL_BAUD);
     if (serial_fd < 0) {
         fprintf(stderr, "No se pudo abrir el serial. Abortando.\n");
         return 1;
     }
+#else
+    printf("[SIM_MODE] Usando señal sin() a 440 Hz — sin ESP32\n");
+    int sim_i = 0;
+#endif
 
     socket_init();
 
-    // Buffer de un paquete (128 samples ADC crudos)
     uint16_t packet[SERIAL_PACKET_SAMPLES];
+    float batch_pre[SERIAL_PACKET_SAMPLES];
+    float batch_post[SERIAL_PACKET_SAMPLES];
     long total_samples = 0;
 
     while (1) {
 
-        // ---------------------------------------------------------------------
-        // Recepcion de JSON (no bloqueante, igual que antes)
-        // ---------------------------------------------------------------------
         int n = socket_receive(json_buffer, sizeof(json_buffer) - 1);
         if (n > 0) {
             printf("JSON recibido:\n%s\n", json_buffer);
@@ -129,7 +121,6 @@ int main()
             fx_order_count = 0;
 
             char *cursor = json_buffer;
-
             while ((cursor = strstr(cursor, "\"type\"")) != NULL) {
                 char *type_colon = strchr(cursor, ':');
                 if (!type_colon) break;
@@ -172,19 +163,16 @@ int main()
 
                 for (int m = 0; m < map_size; m++) {
                     if (strcmp(map[m].effect_key, effect_type) != 0) continue;
-
                     if (enabled[map[m].fx_id] == 0 && fx_order_count < FX_COUNT) {
                         if (fx_enabled)
                             fx_order[fx_order_count++] = map[m].fx_id;
                         enabled[map[m].fx_id] = fx_enabled;
                     }
-
                     if (!fx_enabled) continue;
                     char *param_pos = strstr(params_block, map[m].param_key);
                     if (!param_pos) continue;
                     char *colon = strchr(param_pos, ':');
                     if (!colon) continue;
-
                     float raw_value = 0.0f;
                     if (sscanf(colon + 1, "%f", &raw_value) == 1) {
                         *map[m].target = raw_value * map[m].scale + map[m].offset;
@@ -192,50 +180,53 @@ int main()
                     }
                 }
             }
-
             printf("  Cadena de efectos (%d): ", fx_order_count);
             for (int k = 0; k < fx_order_count; k++) printf("%d ", fx_order[k]);
             printf("\n");
-
             memset(json_buffer, 0, sizeof(json_buffer));
         }
 
         // ---------------------------------------------------------------------
-        // LECTURA DEL SERIAL  (reemplaza el sinf() de antes)
-        //
-        // serial_read_packet() bloquea hasta recibir un paquete completo de
-        // 128 samples con sync word valida, igual al protocolo del monitor.py.
-        // Cada sample es un codigo ADC ESP32 de 12 bits (0-4095).
-        // serial_adc_to_float() lo normaliza a [-1.0, 1.0] quitando el DC.
+        // OBTENER SAMPLES: serial real o sin() simulada
         // ---------------------------------------------------------------------
+#if SIM_MODE == 1
+        for (int s = 0; s < SERIAL_PACKET_SAMPLES; s++) {
+            batch_pre[s] = sinf(2.0f * PI * 440.0f * sim_i / SAMPLE_RATE);
+            sim_i++;
+            if (sim_i >= SAMPLE_RATE) sim_i = 0;
+        }
+        usleep(2900);   // imitar cadencia del serial a 460800 baud
+#else
         if (serial_read_packet(serial_fd, packet) < 0) {
             fprintf(stderr, "[serial] error leyendo paquete, reintentando...\n");
             continue;
         }
+        for (int s = 0; s < SERIAL_PACKET_SAMPLES; s++)
+            batch_pre[s] = serial_adc_to_float(packet[s]);
+#endif
 
+        // ---------------------------------------------------------------------
+        // CADENA DE EFECTOS + envío al socket
+        // ---------------------------------------------------------------------
         for (int s = 0; s < SERIAL_PACKET_SAMPLES; s++) {
-            float input = serial_adc_to_float(packet[s]);   // [-1.0, 1.0]
-
-            float sig = input;
-            for (int k = 0; k < fx_order_count; k++) {
+            float sig = batch_pre[s];
+            for (int k = 0; k < fx_order_count; k++)
                 sig = process_effect(fx_order[k], sig,
                                      &od, &wah, &ch, &flanger, &pitch, &delay);
-            }
-
+            batch_post[s] = sig;
             total_samples++;
-            if (total_samples % 3000 == 0) {
-                printf("audio: input=%f out=%f  cadena=%d efectos\n",
-                       input, sig, fx_order_count);
-            }
-
-            socket_send_two_floats(input, sig);
         }
-        // Sin usleep(): el propio serial_read_packet() tarda ~2.9 ms por
-        // paquete a 460800 baud (128 * 2 bytes + sync = 260 bytes → ~4.5 ms),
-        // lo que cadencia naturalmente el loop a ~44 kHz efectivos.
+
+        if (total_samples % 22039 < SERIAL_PACKET_SAMPLES)
+            printf("audio: input=%f out=%f  cadena=%d efectos\n",
+                   batch_pre[0], batch_post[0], fx_order_count);
+
+        socket_send_batch(batch_pre, batch_post, SERIAL_PACKET_SAMPLES);
     }
 
+#if SIM_MODE == 0
     serial_close(serial_fd);
+#endif
     socket_close();
     return 0;
 }
