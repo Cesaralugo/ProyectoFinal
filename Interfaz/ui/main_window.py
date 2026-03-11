@@ -284,7 +284,7 @@ class MainWindow(QWidget):
         if not self.show_fft:
             self.plot_post.setLabel("bottom", "Time")
             self.plot_post.setLabel("left", "Amplitude")
-            self.plot_pre.enableAutoRange()
+            self.plot_post.enableAutoRange()
             self.curve_post.setData(x_post, list(post_src))
         else:
             self.plot_post.setLabel("bottom", "Frequency (Hz)")
