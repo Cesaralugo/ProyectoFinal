@@ -225,6 +225,7 @@ class MainWindow(QWidget):
             "Wah": {"FREQ":0.5,"Q":0.3,"LEVEL":0.2},
             "Flanger": {"RATE":0.5,"DEPTH":0.3,"FEEDBACK":0.2,"MIX":0.5},
             "Chorus": {"RATE":0.5,"DEPTH":0.5,"MIX":0.5},
+            "Phaser": {"RATE":0.5,"DEPTH":0.7,"FEEDBACK":0.3,"MIX":0.5},
             "PitchShifter": {"SEMITONES":0.0,"MIX":0.5}
         }
 

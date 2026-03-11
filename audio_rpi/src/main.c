@@ -11,6 +11,7 @@
 #include "../include/chorus.h"
 #include "../include/flanger.h"
 #include "../include/pitch_shifter.h"
+#include "../include/phaser.h" 
 
 #define SAMPLE_RATE 44100
 #define PI 3.14159265358979323846f
@@ -31,7 +32,8 @@ char json_buffer[4096];
 #define FX_CHORUS        3
 #define FX_FLANGER       4
 #define FX_PITCHSHIFTER  5
-#define FX_COUNT         6
+#define FX_PHASER        6
+#define FX_COUNT         7
 
 int enabled[FX_COUNT]  = {0};
 int fx_order[FX_COUNT] = {0};
@@ -48,7 +50,7 @@ typedef struct {
 
 float process_effect(int fx_id, float sig,
                      Overdrive *od, Wah *wah, Chorus *ch,
-                     Flanger *flanger, PitchShifter *pitch, Delay *delay)
+                     Flanger *flanger, PitchShifter *pitch, Delay *delay, Phaser *phaser)
 {
     switch (fx_id) {
         case FX_OVERDRIVE:    return Overdrive_process(od, sig);
@@ -57,6 +59,7 @@ float process_effect(int fx_id, float sig,
         case FX_FLANGER:      return Flanger_process(flanger, sig);
         case FX_PITCHSHIFTER: return PitchShifter_process(pitch, sig);
         case FX_DELAY:        return Delay_process(delay, sig);
+        case FX_PHASER:       return Phaser_process(phaser, sig);
         default:              return sig;
     }
 }
@@ -69,6 +72,7 @@ int main()
     Chorus ch;          Chorus_init(&ch, 0.8f, 0.7f, 0.5f);
     Flanger flanger;    Flanger_init(&flanger, 0.25f, 0.7f, 0.3f, 0.5f);
     PitchShifter pitch; PitchShifter_init(&pitch, 7.0f, 0.5f);
+    Phaser phaser; Phaser_init(&phaser, 0.5f, 0.7f, 0.3f, 0.5f);
 
     ParamMap map[] = {
         { "Overdrive",    "GAIN",      FX_OVERDRIVE,    &od.gain,         10.0f, 1.0f },
@@ -89,6 +93,10 @@ int main()
         { "Flanger",      "MIX",       FX_FLANGER,      &flanger.mix,      1.0f, 0.0f },
         { "PitchShifter", "SEMITONES", FX_PITCHSHIFTER, &pitch.semitones,  1.0f, 0.0f },
         { "PitchShifter", "MIX",       FX_PITCHSHIFTER, &pitch.mix,        1.0f, 0.0f },
+        { "Phaser",       "RATE",      FX_PHASER,       &phaser.rate,      1.0f, 0.0f },
+        { "Phaser",       "DEPTH",     FX_PHASER,       &phaser.depth,     1.0f, 0.0f },
+        { "Phaser",       "FEEDBACK",  FX_PHASER,       &phaser.feedback,  1.0f, 0.0f },
+        { "Phaser",       "MIX",       FX_PHASER,       &phaser.mix,       1.0f, 0.0f },
     };
     int map_size = sizeof(map) / sizeof(map[0]);
 
