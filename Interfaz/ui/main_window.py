@@ -52,6 +52,7 @@ class MainWindow(QWidget):
             "Wah",
             "Flanger",
             "Chorus",
+            "Phaser",
             "PitchShifter"
         ]
 
