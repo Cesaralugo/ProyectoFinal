@@ -93,6 +93,7 @@ int main()
     int map_size = sizeof(map) / sizeof(map[0]);
 
 #if SIM_MODE == 0
+    uint16_t packet[SERIAL_PACKET_SAMPLES];
     int serial_fd = serial_open(SERIAL_PORT, SERIAL_BAUD);
     if (serial_fd < 0) {
         fprintf(stderr, "No se pudo abrir el serial. Abortando.\n");
@@ -105,7 +106,6 @@ int main()
 
     socket_init();
 
-    uint16_t packet[SERIAL_PACKET_SAMPLES];
     float batch_pre[SERIAL_PACKET_SAMPLES];
     float batch_post[SERIAL_PACKET_SAMPLES];
     long total_samples = 0;
