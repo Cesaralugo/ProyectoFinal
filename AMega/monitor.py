@@ -289,7 +289,7 @@ class MainWindow(QMainWindow):
 
         tb1.addWidget(QLabel("Baud:"))
         self.baud_combo = QComboBox()
-        for b in [460800, 230400, 115200, 500000, 1000000, 2000000]:
+        for b in [115200, 230400, 460800, 921600, 500000, 1000000, 2000000]:
             self.baud_combo.addItem(str(b))
         self.baud_combo.setCurrentText(str(self.args.baud))
         tb1.addWidget(self.baud_combo)
@@ -657,7 +657,7 @@ def main():
     ap = argparse.ArgumentParser(
         description="PyQt6 live monitor + audio for Arduino ADC 44 kHz")
     ap.add_argument("--port",  default="")
-    ap.add_argument("--baud",  type=int,   default=460_800)
+    ap.add_argument("--baud",  type=int,   default=921_600)
     ap.add_argument("--fs",    type=float, default=22_039)
     ap.add_argument("--vref",  type=float, default=5.0)
     ap.add_argument("--esp32", action="store_true",

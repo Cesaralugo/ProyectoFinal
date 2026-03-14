@@ -1,329 +1,184 @@
-// =============================================================================
-//  Acquisition_ESP32.ino  —  v11  (arduino-esp32 core 3.x)
-//  460800 baud  |  22 kSPS output  |  128-sample packets
-//
-//  ── Root cause of all timer failures (now fixed) ────────────────────────────
-//
-//  Every version up to v10 had the same two timer bugs:
-//
-//  BUG A — timerBegin returned NULL
-//  core 3.x uses the IDF gptimer driver.  timerBegin() calls
-//  gptimer_new_timer() which allocates from a pool of 4 hardware slots.
-//  The framework pre-allocates one slot during init (for the system tick or
-//  wdt).  If timerBegin is called too early or a driver holds a slot
-//  temporarily, it returns NULL.  Fix: retry with a short delay.
-//
-//  BUG B — timerBegin succeeded but ISR never fired
-//  In core 3.x the ISR fires on ALARM, not on counter overflow.
-//  The core 2.x pattern was:
-//    timerBegin(0, prescaler, true)   → timer ticks
-//    timerAttachInterrupt(...)        → ISR registered
-//    timerAlarmWrite(t, N, true)      → arm alarm at count N
-//    timerAlarmEnable(t)              → start alarm
-//  In core 3.x timerAlarmWrite and timerAlarmEnable are gone.
-//  The single replacement call is:
-//    timerAlarm(timer, alarm_value, autoreload, reload_count)
-//  Without this call the counter runs but the ISR is NEVER triggered —
-//  which is why all previous versions showed isr_count=0.
-//
-//  The correct core 3.x sequence for a periodic ISR at SAMPLE_RATE_HZ:
-//    t = timerBegin(1000000);          // 1 MHz resolution
-//    timerAttachInterrupt(t, &onISR);  // register callback
-//    timerAlarm(t, 1000000/RATE, true, 0);  // fire every N µs
-//
-//  ── Wire format ─────────────────────────────────────────────────────────────
-//    [0xAA 0x55 0xFF 0x00] + [128 × uint16 LE, 12-bit codes 0–4095]
-//    Packet = 260 bytes.  Output Fs = 22 039 Hz (44077 / 2 decimation).
-//
-//  ── Usage ───────────────────────────────────────────────────────────────────
-//  1. Upload with VERBOSE_BOOT 1, open Serial Monitor at 460800 baud.
-//     Confirm you see "[5] Streaming..." and [STAT] isr count growing.
-//  2. Set VERBOSE_BOOT 0, re-upload, then run Python:
-//       python diagnose_esp32.py --port /dev/ttyUSB0 --baud 460800
-//       python monitor.py --port /dev/ttyUSB0 --baud 460800 \
-//                         --fs 22039 --vref 3.3 --esp32
-// =============================================================================
+/*
+ * Acquisition_ESP32.ino
+ * ═════════════════════════════════════════════════════════════════════════════
+ * Real-time ADC sampler for ESP32-WROOM-32
+ * Target core: Arduino ESP32 core 1.0.4
+ *
+ * Samples GPIO36 (ADC1_CH0) at ~44 kHz via hardware timer interrupt,
+ * packs 512 samples per packet, and streams them over UART at 921600 baud.
+ *
+ * Packet wire format (matches monitor.py / diagnose_esp32.py):
+ *   [0xAA 0x55 0xFF 0x00]  ← 4-byte sync word
+ *   [512 × uint16 LE]      ← 1024 payload bytes, raw 12-bit ADC codes (0–4095)
+ *
+ * Total packet size: 1028 bytes
+ * Throughput:  1028 B × (44077/512) ≈ 88.5 kB/s  << 921600 baud ≈ 115 kB/s ✓
+ *
+ * Timer arithmetic (prescaler 80 → 1 tick = 1 µs @ 80 MHz APB):
+ *   Period = 1 000 000 / 44077 ≈ 22.69 µs → alarm count = 23
+ *   Actual Fs = 1 000 000 / 23 ≈ 43 478 Hz  (close enough for audio work)
+ *
+ * Double-buffer scheme:
+ *   ISR fills buf[fill_idx][].
+ *   When a buffer is full the ISR toggles fill_idx and sets ready_idx + flag.
+ *   loop() detects the flag, writes the completed buffer to Serial, clears flag.
+ *   This keeps the ISR short and avoids any Serial call inside the ISR.
+ *
+ * Wiring:
+ *   Signal → GPIO36 (VP / ADC1_CH0)  via ≤100 Ω series resistor
+ *   GND    → ESP32 GND
+ *   Do NOT exceed 3.3 V on GPIO36.
+ *
+ * Python monitor usage:
+ *   python monitor.py --port /dev/ttyUSB0 --baud 921600 \
+ *                     --fs 43478 --vref 3.3 --esp32
+ *
+ * Diagnostic:
+ *   python diagnose_esp32.py --port /dev/ttyUSB0 --baud 921600
+ * ═════════════════════════════════════════════════════════════════════════════
+ */
 
 #include <Arduino.h>
-#include <driver/adc.h>
-#include <soc/sens_reg.h>
-#include <soc/rtc_cntl_reg.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include <freertos/ringbuf.h>
-#include <freertos/semphr.h>
 
-// ── Set 1 for boot log; MUST be 0 for monitor.py / diagnose ──────────────────
-#define VERBOSE_BOOT  1
+// ── User-adjustable parameters ────────────────────────────────────────────────
+#define ADC_PIN        36          // GPIO36 = ADC1_CH0 (VP pin)
+#define PACKET_SAMPLES 512         // samples per packet; must match monitor.py BUFFER_SIZE
+#define SERIAL_BAUD    921600      // 921600 baud — reliable on CH340
 
-// ── Configuration ─────────────────────────────────────────────────────────────
-#define ADC_CHANNEL_NUM   ADC1_CHANNEL_0   // GPIO36 (VP)
-#define ADC_ATTEN_USE     ADC_ATTEN_DB_11  // 0–3.3 V
+// Timer: prescaler 80 → 1 tick = 1 µs.  Period = 23 µs → Fs ≈ 43 478 Hz.
+// Adjust TIMER_PERIOD_US to trim the actual sample rate if needed.
+#define TIMER_PERIOD_US 23
 
-#define SAMPLE_RATE_HZ    44077   // timer fires at this rate
-#define DECIMATE          2       // push every 2nd sample → 22039 Hz output
-#define SERIAL_BAUD       460800
-#define PACKET_SAMPLES    128
-#define RING_PACKETS      16
-#define RING_BYTES        (RING_PACKETS * PACKET_SAMPLES * sizeof(uint16_t))
-
-// Timer resolution and alarm value
-// timerBegin(1000000) → 1 MHz counter (1 tick = 1 µs)
-// alarm = 1000000 / 44077 = 22 ticks → actual Fs = 1e6/22 = 45 455 Hz
-// Use 23 for 43 478 Hz — close enough; actual Fs measured by Python
-#define TIMER_RESOLUTION_HZ  1000000UL
-#define TIMER_ALARM_TICKS    (TIMER_RESOLUTION_HZ / SAMPLE_RATE_HZ)   // = 22
-
-// ── Protocol ──────────────────────────────────────────────────────────────────
+// ── Sync word ─────────────────────────────────────────────────────────────────
 static const uint8_t SYNC[4] = { 0xAA, 0x55, 0xFF, 0x00 };
 
-// ── Globals ───────────────────────────────────────────────────────────────────
-static RingbufHandle_t   ring_buf  = nullptr;
-static SemaphoreHandle_t tx_ready  = nullptr;
-static hw_timer_t*       adc_timer = nullptr;
+// ── Double-buffer ─────────────────────────────────────────────────────────────
+// Two buffers: one being filled by ISR, one being drained by loop().
+// Declared volatile because the ISR writes to them asynchronously.
+static volatile uint16_t buf[2][PACKET_SAMPLES];
 
-static volatile uint32_t overruns  = 0;
-static volatile uint32_t isr_count = 0;
+// Which buffer the ISR is currently filling (0 or 1).
+static volatile uint8_t  fill_idx  = 0;
 
-static uint32_t g_reg_start0 = 0;
-static uint32_t g_reg_start1 = 0;
-static bool     g_use_direct = false;
+// Which buffer loop() should send next (set by ISR when a buffer completes).
+static volatile uint8_t  ready_idx = 1;
 
+// Flag: true when a complete buffer is waiting to be sent.
+static volatile bool     buf_ready = false;
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Direct SAR ADC1 read (~2 µs)
-//  Uses stable REG_READ/REG_WRITE macros (not SENS.* bitfield structs).
-// ─────────────────────────────────────────────────────────────────────────────
-static inline uint16_t IRAM_ATTR read_adc_direct()
+// Current write position inside buf[fill_idx][].
+static volatile int      pos       = 0;
+
+// ── Transmit scratch buffer (avoids Serial.write() inside ISR) ───────────────
+// 4 sync bytes + 512 × 2 payload bytes = 1028 bytes
+#define TX_BUF_SIZE  (4 + PACKET_SAMPLES * 2)
+static uint8_t tx_buf[TX_BUF_SIZE];
+
+// ── Hardware timer handle ─────────────────────────────────────────────────────
+static hw_timer_t *sample_timer = NULL;
+
+// ── ISR ───────────────────────────────────────────────────────────────────────
+/*
+ * Runs every TIMER_PERIOD_US microseconds.
+ * Reads the ADC, stores the 12-bit result into the active buffer.
+ * When the buffer is full it swaps buffers atomically and signals loop().
+ *
+ * analogRead() on ESP32 core 1.0.4 takes ≈ 10–15 µs for a 12-bit conversion,
+ * which fits comfortably inside a 23 µs ISR period.
+ *
+ * IRAM_ATTR ensures the ISR is placed in IRAM so it can run even during
+ * flash cache misses (e.g. while loop() is writing to Serial).
+ */
+void IRAM_ATTR onSampleTimer()
 {
-    REG_WRITE(SENS_SAR_MEAS_START1_REG, g_reg_start0);
-    REG_WRITE(SENS_SAR_MEAS_START1_REG, g_reg_start1);
-    uint8_t guard = 200;
-    while (!(REG_READ(SENS_SAR_MEAS_START1_REG) & SENS_MEAS1_DONE_SAR_M)) {
-        if (--guard == 0) return 0;
-    }
-    return (uint16_t)((REG_READ(SENS_SAR_MEAS_START1_REG)
-                       >> SENS_MEAS1_DATA_SAR_S) & 0x0FFF);
-}
+    uint16_t raw = (uint16_t)analogRead(ADC_PIN);
+    buf[fill_idx][pos] = raw;
+    pos++;
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Timer ISR — fires at ~SAMPLE_RATE_HZ via timerAlarm
-// ─────────────────────────────────────────────────────────────────────────────
-static void ARDUINO_ISR_ATTR onTimer()
-{
-    static uint8_t dec = 0;
-
-    uint16_t sample;
-    if (g_use_direct) {
-        sample = read_adc_direct();
-    } else {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-        sample = (uint16_t)adc1_get_raw(ADC_CHANNEL_NUM);
-        #pragma GCC diagnostic pop
-    }
-    isr_count++;
-
-    if (++dec < DECIMATE) return;
-    dec = 0;
-
-    BaseType_t ok = xRingbufferSendFromISR(ring_buf, &sample,
-                                           sizeof(sample), nullptr);
-    if (ok != pdTRUE) overruns++;
-}
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  ADC init
-// ─────────────────────────────────────────────────────────────────────────────
-static bool init_adc()
-{
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(ADC_CHANNEL_NUM, ADC_ATTEN_USE);
-    adc1_get_raw(ADC_CHANNEL_NUM);   // warm-up
-    #pragma GCC diagnostic pop
-
-    REG_CLR_BIT(SENS_SAR_READ_CTRL_REG, SENS_SAR1_DIG_FORCE_M);
-    REG_SET_FIELD(SENS_SAR_MEAS_WAIT2_REG, SENS_FORCE_XPD_SAR, 3);
-
-    uint32_t val = REG_READ(SENS_SAR_MEAS_START1_REG);
-    val |=  SENS_MEAS1_START_FORCE_M;
-    val |=  SENS_SAR1_EN_PAD_FORCE_M;
-    val  = (val & ~SENS_SAR1_EN_PAD_M)
-         | ((uint32_t)(1 << ADC_CHANNEL_NUM) << SENS_SAR1_EN_PAD_S);
-    val &= ~SENS_MEAS1_START_SAR_M;
-    REG_WRITE(SENS_SAR_MEAS_START1_REG, val);
-    g_reg_start0 = val;
-    g_reg_start1 = val | SENS_MEAS1_START_SAR_M;
-
-    // Verify with a test conversion
-    REG_WRITE(SENS_SAR_MEAS_START1_REG, g_reg_start0);
-    REG_WRITE(SENS_SAR_MEAS_START1_REG, g_reg_start1);
-    uint32_t t0 = micros();
-    while (!(REG_READ(SENS_SAR_MEAS_START1_REG) & SENS_MEAS1_DONE_SAR_M)) {
-        if (micros() - t0 > 50) {
-#if VERBOSE_BOOT
-            Serial.println("  [ADC] direct register timeout — using analogRead fallback");
-            Serial.flush();
-#endif
-            return false;
-        }
-    }
-#if VERBOSE_BOOT
-    uint16_t v = (REG_READ(SENS_SAR_MEAS_START1_REG)
-                  >> SENS_MEAS1_DATA_SAR_S) & 0x0FFF;
-    Serial.printf("  [ADC] direct test read: %u (%.3f V)\n",
-                  v, v * 3.3f / 4095.0f);
-    Serial.flush();
-#endif
-    return true;
-}
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Timer init — core 3.x with timerAlarm (the missing piece in all prev versions)
-// ─────────────────────────────────────────────────────────────────────────────
-static bool init_timer()
-{
-    // Retry up to 5 times in case a framework driver temporarily holds a slot
-    for (int attempt = 1; attempt <= 5; attempt++) {
-        adc_timer = timerBegin(TIMER_RESOLUTION_HZ);
-        if (adc_timer) {
-#if VERBOSE_BOOT
-            Serial.printf("  [TIMER] timerBegin OK on attempt %d\n", attempt);
-            Serial.flush();
-#endif
-            break;
-        }
-#if VERBOSE_BOOT
-        Serial.printf("  [TIMER] timerBegin NULL attempt %d\n", attempt);
-        Serial.flush();
-#endif
-        delay(50);
-    }
-    if (!adc_timer) return false;
-
-    // Register ISR
-    timerAttachInterrupt(adc_timer, &onTimer);
-
-    // ARM THE ALARM — this is what was missing in every previous version.
-    // Without this call the counter runs silently and the ISR never fires.
-    //   alarm_value  = TIMER_ALARM_TICKS  (counter value that triggers ISR)
-    //   autoreload   = true               (reset counter to 0 after each alarm)
-    //   reload_count = 0                  (repeat indefinitely)
-    timerAlarm(adc_timer, TIMER_ALARM_TICKS, true, 0);
-
-    return true;
-}
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  TX task — Core 0
-// ─────────────────────────────────────────────────────────────────────────────
-static uint8_t tx_pkt[4 + PACKET_SAMPLES * sizeof(uint16_t)];
-
-static void tx_task(void*)
-{
-    memcpy(tx_pkt, SYNC, 4);
-    uint16_t* const samples = (uint16_t*)(tx_pkt + 4);
-    xSemaphoreGive(tx_ready);
-
-    for (;;) {
-        size_t filled = 0;
-        while (filled < PACKET_SAMPLES) {
-            size_t item_sz = 0;
-            void* chunk = xRingbufferReceiveUpTo(
-                ring_buf, &item_sz, pdMS_TO_TICKS(500),
-                (PACKET_SAMPLES - filled) * sizeof(uint16_t));
-            if (!chunk) continue;   // wait — do NOT zero-pad
-            memcpy(samples + filled, chunk, item_sz);
-            vRingbufferReturnItem(ring_buf, chunk);
-            filled += item_sz / sizeof(uint16_t);
-        }
-        Serial.write(tx_pkt, sizeof(tx_pkt));
+    if (pos >= PACKET_SAMPLES) {
+        pos = 0;
+        // Signal that fill_idx buffer is complete.
+        ready_idx = fill_idx;
+        buf_ready = true;
+        // Swap to the other buffer.
+        fill_idx ^= 1;
     }
 }
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  setup / loop
-// ─────────────────────────────────────────────────────────────────────────────
+// ── setup() ───────────────────────────────────────────────────────────────────
 void setup()
 {
+    // ── Serial ────────────────────────────────────────────────────────────────
     Serial.begin(SERIAL_BAUD);
-    delay(500);
 
-#if VERBOSE_BOOT
-    Serial.println("\n=== Acquisition_ESP32 v11 ===");
-    Serial.printf("arduino-esp32 %d.%d.%d  |  heap: %u\n",
-                  ESP_ARDUINO_VERSION_MAJOR,
-                  ESP_ARDUINO_VERSION_MINOR,
-                  ESP_ARDUINO_VERSION_PATCH,
-                  (unsigned)esp_get_free_heap_size());
-    Serial.printf("SAMPLE_RATE=%d  ALARM=%lu  DECIMATE=%d  OUT_FS=%d  BAUD=%d\n",
-                  SAMPLE_RATE_HZ, (unsigned long)TIMER_ALARM_TICKS,
-                  DECIMATE, SAMPLE_RATE_HZ/DECIMATE, SERIAL_BAUD);
-    Serial.flush();
-    Serial.println("[1] FreeRTOS objects...");
-    Serial.flush();
-#endif
+    // ── ADC configuration ─────────────────────────────────────────────────────
+    // 12-bit resolution → codes 0–4095.
+    analogReadResolution(12);
 
-    tx_ready = xSemaphoreCreateBinary();
-    ring_buf = xRingbufferCreate(RING_BYTES, RINGBUF_TYPE_BYTEBUF);
-    if (!tx_ready || !ring_buf) {
-        pinMode(2, OUTPUT);
-        for (;;) { digitalWrite(2, !digitalRead(2)); delay(200); }
+    // ADC_11db attenuation → full-scale ≈ 3.3 V (actually 3.9 V, but the
+    // ESP32 ADC is non-linear above ~3.1 V; keep input ≤ 3.3 V).
+    analogSetAttenuation(ADC_11db);
+
+    // Restrict sampling to ADC1 (ADC2 is shared with Wi-Fi).
+    // analogSetPinAttenuation() works on core 1.0.4.
+    analogSetPinAttenuation(ADC_PIN, ADC_11db);
+
+    // Warm-up: discard first few reads (ADC needs a few cycles to settle).
+    for (int i = 0; i < 16; i++) {
+        analogRead(ADC_PIN);
     }
 
-#if VERBOSE_BOOT
-    Serial.println("  OK");
-    Serial.println("[2] TX task...");
-    Serial.flush();
-#endif
-
-    xTaskCreatePinnedToCore(tx_task, "tx", 4096, nullptr,
-                            configMAX_PRIORITIES - 1, nullptr, 0);
-    xSemaphoreTake(tx_ready, portMAX_DELAY);
-
-#if VERBOSE_BOOT
-    Serial.println("  alive");
-    Serial.println("[3] ADC...");
-    Serial.flush();
-#endif
-
-    g_use_direct = init_adc();
-
-#if VERBOSE_BOOT
-    Serial.printf("  mode: %s\n", g_use_direct ? "direct registers" : "analogRead");
-    Serial.println("[4] Timer...");
-    Serial.flush();
-#endif
-
-    bool timer_ok = init_timer();
-
-#if VERBOSE_BOOT
-    Serial.printf("  %s\n", timer_ok ? "OK" : "FAILED — no samples will be produced");
-    if (timer_ok) {
-        Serial.printf("[5] Streaming at ~%d Hz output Fs\n",
-                      SAMPLE_RATE_HZ / DECIMATE);
-        Serial.println("    Set VERBOSE_BOOT 0 and re-upload before using monitor.py");
-    }
-    Serial.flush();
-    delay(200);   // flush boot log before binary stream starts
-#endif
+    // ── Hardware timer ────────────────────────────────────────────────────────
+    // Timer 0, prescaler 80 → 1 tick per µs at 80 MHz APB clock.
+    sample_timer = timerBegin(0, 80, true);
+    timerAttachInterrupt(sample_timer, &onSampleTimer, true);
+    timerAlarmWrite(sample_timer, TIMER_PERIOD_US, true);
+    timerAlarmEnable(sample_timer);
 }
 
+// ── loop() ────────────────────────────────────────────────────────────────────
+/*
+ * When a buffer is ready:
+ *  1. Snapshot the ready buffer index and clear the flag (atomic).
+ *  2. Build the full packet in tx_buf (sync + payload).
+ *  3. Write tx_buf to Serial in one call for maximum throughput.
+ *
+ * Using a local copy of ready_idx before clearing buf_ready avoids a race
+ * where the ISR sets a new ready_idx while we are still building the packet.
+ *
+ * Serial.write(buf, len) is non-blocking on ESP32 (uses a HW FIFO + DMA);
+ * the 1028-byte packet at 921600 baud takes ≈ 11 ms to shift out, well within
+ * the 11.8 ms it takes the ISR to refill the next buffer at 43 kHz.
+ */
 void loop()
 {
-#if VERBOSE_BOOT
-    vTaskDelay(pdMS_TO_TICKS(5000));
-    Serial.printf("[STAT] isr=%u  overruns=%u  heap=%u\n",
-                  isr_count, overruns, (unsigned)esp_get_free_heap_size());
-    Serial.flush();
-#else
-    vTaskDelay(portMAX_DELAY);
-#endif
+    if (!buf_ready) {
+        return;   // nothing to do; ISR is still filling
+    }
+
+    // Snapshot which buffer completed.
+    uint8_t idx = ready_idx;
+
+    // Clear the flag BEFORE we start copying so we don't block the ISR.
+    buf_ready = false;
+
+    // ── Build packet ──────────────────────────────────────────────────────────
+    // Copy sync word.
+    tx_buf[0] = SYNC[0];
+    tx_buf[1] = SYNC[1];
+    tx_buf[2] = SYNC[2];
+    tx_buf[3] = SYNC[3];
+
+    // Copy samples as little-endian uint16.
+    // volatile pointer cast: safe because we own this buffer until next swap.
+    const volatile uint16_t *src = buf[idx];
+    uint8_t *dst = tx_buf + 4;
+    for (int i = 0; i < PACKET_SAMPLES; i++) {
+        uint16_t s = src[i];          // read volatile word once
+        *dst++ = (uint8_t)(s & 0xFF); // low byte
+        *dst++ = (uint8_t)(s >> 8);   // high byte
+    }
+
+    // ── Transmit ──────────────────────────────────────────────────────────────
+    Serial.write(tx_buf, TX_BUF_SIZE);
 }
