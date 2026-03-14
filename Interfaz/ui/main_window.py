@@ -171,6 +171,11 @@ class MainWindow(QWidget):
             return
         effect_type = self.add_effect_box.currentText()
 
+        already_exists = any(e["type"] == effect_type for e in self.mode.effects)
+        if already_exists:
+            print(f"{effect_type} ya esta en la cadena")
+            return
+
         new_id = f"fx_{len(self.model.effects)+1}"
 
         effect = {
