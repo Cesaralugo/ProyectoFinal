@@ -2,6 +2,7 @@ import sys
 import numpy as np
 import pyqtgraph as pg
 import json
+import os
 
 from ui.effect_widget import EffectWidget
 from core.preset_model import PresetModel
@@ -11,15 +12,15 @@ from server.receiver_c import SocketReceiver
 from collections import deque
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QSlider, QLabel, QComboBox, QListWidget, QListWidgetItem 
 from PyQt6.QtCore import QTimer, Qt
+PRESETS_FILE = "presets.json"
 
 class MainWindow(QWidget):
     SAMPLE_RATE = 44100  
-
     def __init__(self):
         super().__init__()  
-
+    
         self.setWindowTitle("Audio Interface")
-        
+
         #Conexión con C
         self.receiver = SocketReceiver()
         self.receiver.batch_received.connect(self.update_buffers_batch)
@@ -41,8 +42,12 @@ class MainWindow(QWidget):
         self.left_layout.addWidget(self.title_label)
         
         #Presets Dropdown
+        self.presets_data = self._load_presets_file()
+        self.current_preset_key = "Preset 1"
+
         self.preset_dropdown = QComboBox()
-        self.preset_dropdown.addItems(["Preset 1", "Preset 2", "Preset 3"])
+        self.preset_dropdown.addItems(list(self.presets_data.keys()))
+        self.preset_dropdown.currentTextChanged.connect(self.on_preset_changed)
         self.left_layout.addWidget(self.preset_dropdown)
 
         #Effects Dropdown
@@ -79,12 +84,10 @@ class MainWindow(QWidget):
         """)
         self.effects_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.effects_list.model().rowsMoved.connect(self.update_effect_order)
+        
         self.model = PresetModel("Preset1")
-
-        initial_effects = [
-        ]
-
-        self.model.set_effects(initial_effects)
+        first = self.presets_data[self.current_preset_key]
+        self.model.set_effects(first.get("effects", []))
 
 
         #Cargar efectos
@@ -163,6 +166,40 @@ class MainWindow(QWidget):
 
         print("Nuevo estado: ")
         print(self.model.to_json())
+    
+    def _load_presets_file(self):
+        if not os.path.exists(PRESETS_FILE):
+            default = {
+                "Preset 1": {"name": "Preset1", "effects": []},
+                "Preset 2": {"name": "Preset2", "effects": []},
+                "Preset 3": {"name": "Preset3", "effects": []},
+            }
+            with open(PRESETS_FILE, "w") as f:
+                json.dump(default, f, indent=2)
+        
+        with open(PRESETS_FILE, "r") as f:
+            return json.load(f)
+
+    def _save_presets_file(self, presets_data):
+        with open(PRESETS_FILE, "w") as f:
+            json.dump(presets_data, f, indent=2)
+
+    def on_preset_changed(self, preset_key):
+        # Guardar el preset actual antes de cambiar
+        self._save_current_preset()
+
+        # Cargar el nuevo preset
+        self.current_preset_key = preset_key
+        preset = self.presets_data[preset_key]
+        self.model = PresetModel(preset["name"])
+        self.model.set_effects(preset.get("effects", []))
+
+        self.signal_buffer.clear()
+        self.pre_buffer.clear()
+        self.load_effects()
+
+        json_data = self.model.to_json()
+        self.receiver.send_json(json_data)
 
     #Añadir efectos logic
     def add_effect(self):
