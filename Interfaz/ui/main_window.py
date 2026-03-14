@@ -61,16 +61,12 @@ class MainWindow(QWidget):
             "PitchShifter"
         ]
 
+        #OnClick add effect
         self.add_effect_box = QComboBox()
         self.add_effect_box.addItems(self.available_effects)
-
-        self.add_effect_btn = QPushButton("Add Effect")
-        self.add_effect_btn.clicked.connect(self.add_effect)
-
+        self.add_effect_box.activated.connect(self.add_effect)  
         self.left_layout.addWidget(self.add_effect_box)
-        self.left_layout.addWidget(self.add_effect_btn)
 
-        
         #Lista de efectos
         self.effects_list = QListWidget()
         self.effects_list.setStyleSheet("""
@@ -155,6 +151,9 @@ class MainWindow(QWidget):
             new_order.append(widget.effect_data)
 
         self.model.update_order(new_order)
+        self._save_current_preset()
+        json_data = self.model.to_json()
+        self.receiver.send_json(json_data)
         print(self.model.to_json())
 
     def handle_remote_json(self,data):
@@ -211,7 +210,7 @@ class MainWindow(QWidget):
             "effects": parsed["effects"]
         }
         self._save_presets_file(self.presets_data)
-        
+
     #Añadir efectos logic
     def add_effect(self):
         if len(self.model.effects) >= 4:
@@ -235,6 +234,7 @@ class MainWindow(QWidget):
 
         self.model.effects.append(effect)
         self.load_effects()
+        self._save_current_preset()
 
         json_data = self.model.to_json()
         self.receiver.send_json(json_data)
@@ -250,6 +250,7 @@ class MainWindow(QWidget):
         self.pre_buffer.clear()  
 
         self.load_effects()
+        self._save_current_preset()
 
         json_data = self.model.to_json()
         self.receiver.send_json(json_data)  
