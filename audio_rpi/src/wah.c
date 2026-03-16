@@ -1,6 +1,5 @@
 #include <math.h>
 #include "wah.h"
-#include <stdio.h>
 
 #define PI 3.14159265358979323846f
 
@@ -26,25 +25,39 @@ static void Wah_updateCoeffs(Wah *wah)
     if (freq < 20.0f)    freq = 20.0f;
     if (freq > 18000.0f) freq = 18000.0f;
 
-    float A     = 4.0f;  // boost fijo de ~12 dB en la frecuencia central
-    float omega = 2.0f * PI * freq / SAMPLE_RATE;
-    float alpha = sinf(omega) / (2.0f * wah->q);
+    float q = wah->q;
+    if (q < 0.1f) q = 0.1f;
 
-    // Peaking EQ: boosteá la frecuencia central en lugar de cortar todo lo demás
+    float omega  = 2.0f * PI * freq / SAMPLE_RATE;
+    float cos_w  = cosf(omega);
+    float sin_w  = sinf(omega);
+    float alpha  = sin_w / (2.0f * q);
+
+    // Peaking EQ: boost de dBgain en la frecuencia central
+    float dBgain = 18.0f;  // boost fijo en dB
+    float A      = powf(10.0f, dBgain / 40.0f);
+
     float a0 =  1.0f + alpha / A;
     filter.a0 = (1.0f + alpha * A) / a0;
-    filter.a1 = (-2.0f * cosf(omega)) / a0;
+    filter.a1 = (-2.0f * cos_w)    / a0;
     filter.a2 = (1.0f - alpha * A) / a0;
-    filter.b1 = (-2.0f * cosf(omega)) / a0;
-    filter.b2 = (1.0f - alpha / A)  / a0;
+    filter.b1 = (-2.0f * cos_w)    / a0;
+    filter.b2 = (1.0f - alpha / A) / a0;
 }
 
 float Wah_process(Wah *wah, float input)
 {
     Wah_updateCoeffs(wah);
+
     float w   = input    - filter.b1 * filter.w1 - filter.b2 * filter.w2;
     float out = filter.a0 * w + filter.a1 * filter.w1 + filter.a2 * filter.w2;
+
     filter.w2 = filter.w1;
     filter.w1 = w;
+
+    // Clamp para evitar explosion si llega un valor inesperado
+    if (out >  2.0f) out =  2.0f;
+    if (out < -2.0f) out = -2.0f;
+
     return out * wah->level;
 }
