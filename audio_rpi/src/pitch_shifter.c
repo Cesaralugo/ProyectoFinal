@@ -12,16 +12,17 @@ static inline float hanning(float x)
 
 void PitchShifter_init(PitchShifter *ps, float semitones, float mix)
 {
-    ps->semitones    = semitones;
-    ps->pitchFactor  = powf(2.0f, semitones / 12.0f);
-    ps->mix          = mix;
-    ps->writeIndex   = 0;
-    ps->grainSize    = (GRAIN_SIZE_MS * SAMPLE_RATE) / 1000;
+    ps->semitones   = semitones;
+    ps->pitchFactor = powf(2.0f, semitones / 12.0f);
+    ps->mix         = mix;
+    ps->writeIndex  = 0;
+    ps->grainSize   = (GRAIN_SIZE_MS * SAMPLE_RATE) / 1000;
 
     int bufferSize = (SAMPLE_RATE * PITCH_MAX_DELAY_MS) / 1000;
     for (int i = 0; i < bufferSize; i++)
         ps->buffer[i] = 0.0f;
 
+    // Repartir granos uniformemente en el grainSize completo
     for (int g = 0; g < MAX_GRAINS; g++)
         ps->grainOffsets[g] = g * (ps->grainSize / MAX_GRAINS);
 }
