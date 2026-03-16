@@ -15,6 +15,7 @@ void Delay_init(Delay *d, float delay_ms, float feedback, float mix)
 
 float Delay_process(Delay *d, float input)
 {
+    d->delaySamples = (int)((d->delay_ms / 1000.0f) * SAMPLE_RATE);
     int bufferSize = (SAMPLE_RATE * MAX_DELAY_MS / 1000);
     float readIndex = d->writeIndex - d->delaySamples;
     if (readIndex < 0)
