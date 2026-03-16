@@ -39,7 +39,7 @@ float Flanger_process(Flanger *flanger, float input)
 
     // Delay variable
     float baseDelay = 0.002f * SAMPLE_RATE;                  // 2 ms base
-    float modAmount = flanger->depth * 0.008f * SAMPLE_RATE; // hasta +8 ms
+    float modAmount = flanger->depth * 0.003f * SAMPLE_RATE; // hasta +8 ms
     float delaySamples = baseDelay + lfo * modAmount;
 
     float readIndex = writeIndex - delaySamples;
