@@ -37,13 +37,15 @@ static void Wah_updateCoeffs(Wah *wah)
 float Wah_process(Wah *wah, float input)
 {
     Wah_updateCoeffs(wah);
-
-    // Direct Form II
-    float w  = input - filter.b1 * filter.w1 - filter.b2 * filter.w2;
+    float w   = input - filter.b1 * filter.w1 - filter.b2 * filter.w2;
     float out = filter.a0 * w + filter.a1 * filter.w1 + filter.a2 * filter.w2;
-
     filter.w2 = filter.w1;
     filter.w1 = w;
+
+    static int debug_count = 0;
+    if (debug_count++ % 44100 == 0)
+        printf("[WAH] freq=%.1f q=%.2f level=%.2f | in=%.4f out=%.4f\n",
+               wah->freq, wah->q, wah->level, input, out * wah->level);
 
     return out * wah->level;
 }
