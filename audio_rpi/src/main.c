@@ -5,6 +5,7 @@
 #include "../include/serial_input.h"
 #include <string.h>
 #include <alsa/asoundlib.h>
+#include <sndfile.h>
 
 #include "../include/delay.h"
 #include "../include/overdrive.h"
@@ -53,7 +54,8 @@ static snd_pcm_t* alsa_init(unsigned int sample_rate)
 // ── Modo de entrada ───────────────────────────────────────────────────────────
 // SIM_MODE 1 → señal sin() simulada a 440 Hz (sin ESP32, para desarrollo)
 // SIM_MODE 0 → lectura real desde ESP32 por serial
-#define SIM_MODE 1
+#define SIM_MODE 2
+#define WAV_FILE "guitar_sample.wav" 
 
 #define SERIAL_PORT NULL    // autodetecta ttyUSB0/1/2, ttyACM0/1/2
 #define SERIAL_BAUD  460800
