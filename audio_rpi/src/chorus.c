@@ -27,8 +27,12 @@ float Chorus_process(Chorus *ch, float input)
 
     // Suavizar el rate para evitar glitches al cambiarlo en vivo
     // alpha = 0.001 → ~200ms de transicion
+    // Clamp del rate antes de suavizar — chorus real no supera 1 Hz
+    float targetRate = ch->rate;
+    if (targetRate > 1.0f) targetRate = 1.0f;
+    
     float alpha = 0.001f;
-    smoothRate  = smoothRate + alpha * (ch->rate - smoothRate);
+    smoothRate  = smoothRate + alpha * (targetRate - smoothRate);
 
     // LFO seno [-1, 1] usando el rate suavizado
     float lfo = sinf(2.0f * PI * lfoPhase);
