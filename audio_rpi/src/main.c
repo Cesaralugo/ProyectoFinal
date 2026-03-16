@@ -189,6 +189,17 @@ int main()
     sf_close(sf);
     int wav_pos = 0;
     printf("[SIM_MODE 2] WAV cargado en memoria (%d frames)\n", wav_frames);
+    float wav_max = 0.0f;
+    for (int i = 0; i < wav_frames * sf_info.channels; i++) {
+        float abs_val = fabsf(wav_data[i]);
+        if (abs_val > wav_max) wav_max = abs_val;
+    }
+    if (wav_max > 1.0f) {
+        for (int i = 0; i < wav_frames * sf_info.channels; i++)
+            wav_data[i] /= wav_max;
+    }
+    printf("[SIM_MODE 2] Normalizacion: max=%.4f %s\n", 
+           wav_max, wav_max > 1.0f ? "(normalizado)" : "(ok)");
 #endif
 
     // --- ALSA y socket ---
@@ -302,8 +313,8 @@ int main()
 
 #elif SIM_MODE == 2
         for (int s = 0; s < SERIAL_PACKET_SAMPLES; s++) {
-            // Canal izquierdo (indice 0) para mono/estereo
-            batch_pre[s] = wav_data[wav_pos * sf_info.channels];
+            float sample = wav_data[wav_pos * sf_info.channels]; 
+            batch_pre[s] = sample;
             wav_pos++;
             if (wav_pos >= wav_frames)
                 wav_pos = 0;  // loop
