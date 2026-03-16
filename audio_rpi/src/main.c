@@ -4,6 +4,7 @@
 #include "../include/socket_server.h"
 #include "../include/serial_input.h"
 #include <string.h>
+#include <alsa/asoundlib.h>
 
 #include "../include/delay.h"
 #include "../include/overdrive.h"
