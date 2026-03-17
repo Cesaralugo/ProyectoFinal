@@ -28,34 +28,31 @@ static void Wah_updateCoeffs(Wah *wah)
     float q = wah->q;
     if (q < 0.1f) q = 0.1f;
 
-    float omega  = 2.0f * PI * freq / SAMPLE_RATE;
-    float cos_w  = cosf(omega);
-    float sin_w  = sinf(omega);
-    float alpha  = sin_w / (2.0f * q);
+    float omega = 2.0f * PI * freq / SAMPLE_RATE;
+    float cos_w = cosf(omega);
+    float sin_w = sinf(omega);
+    float alpha = sin_w / (2.0f * q);   // bandwidth term
 
-    // Peaking EQ: boost de dBgain en la frecuencia central
-    float dBgain = 18.0f;  // boost fijo en dB
-    float A      = powf(10.0f, dBgain / 40.0f);
-
-    float a0 =  1.0f + alpha / A;
-    filter.a0 = (1.0f + alpha * A) / a0;
-    filter.a1 = (-2.0f * cos_w)    / a0;
-    filter.a2 = (1.0f - alpha * A) / a0;
-    filter.b1 = (-2.0f * cos_w)    / a0;
-    filter.b2 = (1.0f - alpha / A) / a0;
+    // --- Bandpass (BPF, constant 0 dB peak) ---
+    // H(z) = alpha / (1 + alpha) — passes only the band around freq
+    float norm = 1.0f + alpha;
+    filter.a0 =  alpha / norm;
+    filter.a1 =  0.0f;
+    filter.a2 = -alpha / norm;
+    filter.b1 = (-2.0f * cos_w) / norm;
+    filter.b2 = (1.0f - alpha)  / norm;
 }
 
 float Wah_process(Wah *wah, float input)
 {
     Wah_updateCoeffs(wah);
 
-    float w   = input    - filter.b1 * filter.w1 - filter.b2 * filter.w2;
+    float w   = input - filter.b1 * filter.w1 - filter.b2 * filter.w2;
     float out = filter.a0 * w + filter.a1 * filter.w1 + filter.a2 * filter.w2;
 
     filter.w2 = filter.w1;
     filter.w1 = w;
 
-    // Clamp para evitar explosion si llega un valor inesperado
     if (out >  2.0f) out =  2.0f;
     if (out < -2.0f) out = -2.0f;
 
