@@ -51,10 +51,14 @@ float Wah_process(Wah *wah, float input)
     // wah->freq controla la velocidad del sweep (Hz del LFO)
     float lfo_rate = wah->freq;
     if (lfo_rate < 0.1f) lfo_rate = 0.1f;
-    if (lfo_rate > 10.0f) lfo_rate = 10.0f;
-
+    if (lfo_rate > 4.0f)  lfo_rate = 4.0f;   // techo más bajo
+    
+    // Seno elevado al cubo — se mueve lento en los extremos,
+    // más rápido en el centro, igual que un pedal físico
     float s       = sinf(lfo_phase);
-    float lfo_val = 0.5f * (1.0f + s * s * s);   // 0..1, curva suave    float sweep_freq = WAH_FREQ_MIN + lfo_val * (WAH_FREQ_MAX - WAH_FREQ_MIN);
+    float lfo_val = 0.5f * (1.0f + s * s * s);   // 0..1, curva suave
+    
+    float sweep_freq = WAH_FREQ_MIN + lfo_val * (WAH_FREQ_MAX - WAH_FREQ_MIN);
     lfo_phase += 2.0f * PI * lfo_rate / SAMPLE_RATE;
     if (lfo_phase >= 2.0f * PI) lfo_phase -= 2.0f * PI;
 
