@@ -144,7 +144,7 @@ int main()
         { "Delay",        "MIX",       FX_DELAY,        &delay.mix,        1.0f,  0.0f },
     
         // Chorus — todo 0-1
-        { "Chorus",       "RATE",      FX_CHORUS,       &ch.rate,          1.0f,  0.0f },
+        { "Chorus",       "RATE",      FX_CHORUS,       &ch.rate,          2.0f,  0.0f },
         { "Chorus",       "DEPTH",     FX_CHORUS,       &ch.depth,         1.0f,  0.0f },
         { "Chorus",       "MIX",       FX_CHORUS,       &ch.mix,           1.0f,  0.0f },
     
