@@ -15,7 +15,7 @@ class EffectWidget(QWidget):
         "FREQ": (300, 2000, "Hz"),
         "Q": (0.1, 10, ""),
         "LEVEL": (0, 1, ""),
-        "RATE": (0.1, 10, "Hz"),
+        "RATE": (0.1, 3, "Hz"),
         "DEPTH": (0, 1, ""),
         "SEMITONES": (-12, 12, "st")
     }
