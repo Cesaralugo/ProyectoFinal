@@ -36,8 +36,7 @@ void Chorus_init(Chorus *ch, float rate, float depth, float feedback, float mix)
 
 float Chorus_process(Chorus *ch, float input)
 {
-    // RATE llega 0.1-3 Hz — escala cuadrática igual que el ref
-    float rate = ch->rate * ch->rate * 3.0f;
+    float rate = ch->rate;
     if (rate < 0.01f) rate = 0.01f;
     if (rate > 3.0f)  rate = 3.0f;
 
