@@ -113,8 +113,6 @@ class MainWindow(QWidget):
         self.plot_pre.getAxis("bottom").setTextPen('white')
         self.curve_pre = self.plot_pre.plot(
             pen=pg.mkPen(color=(0, 180, 255), width=1.5),
-            fillLevel=-130,
-            brush=pg.mkBrush(0, 140, 255, 60)  # RGBA — el último valor es opacidad
         )
         self.right_layout.addWidget(self.plot_pre)
 
@@ -127,8 +125,6 @@ class MainWindow(QWidget):
         self.plot_post.getAxis("bottom").setTextPen('white')
         self.curve_post = self.plot_post.plot(
             pen=pg.mkPen(color=(0, 180, 255), width=1.5),
-            fillLevel=-130,
-            brush=pg.mkBrush(0, 140, 255, 60)
         )
         self.right_layout.addWidget(self.plot_post)
 
@@ -364,7 +360,7 @@ class MainWindow(QWidget):
             self.plot_pre.setXRange(0, 20000)
             # Dinámico: pico real como techo, -90 como piso
             peak = float(np.max(Y_db[mask]))
-            self.plot_pre.setYRange(-130, peak + 5)
+            self.plot_pre.setYRange(-150, peak + 5)
             self.curve_pre.setData(freqs[mask], Y_db[mask])
 
         if not self.show_fft:
@@ -379,7 +375,7 @@ class MainWindow(QWidget):
             mask = freqs <= 20000
             self.plot_post.setXRange(0, 20000)
             peak = float(np.max(Y_db[mask]))
-            self.plot_post.setYRange(-130, peak + 5)
+            self.plot_post.setYRange(-150, peak + 5)
             self.curve_post.setData(freqs[mask], Y_db[mask])
 
     def handle_param_change(self, effect_id, param, value):
@@ -398,5 +394,15 @@ class MainWindow(QWidget):
         self.show_fft = self.toggle_fft_btn.isChecked()
         if self.show_fft:
             self.toggle_fft_btn.setText("Show Time")
+            # Activar fill para FFT
+            self.curve_pre.setFillLevel(-150)
+            self.curve_post.setFillLevel(-150)
+            self.curve_pre.setBrush(pg.mkBrush(0, 140, 255, 60))
+            self.curve_post.setBrush(pg.mkBrush(0, 140, 255, 60))
         else:
             self.toggle_fft_btn.setText("Show FFT")
+            # Desactivar fill para tiempo
+            self.curve_pre.setFillLevel(None)
+            self.curve_post.setFillLevel(None)
+            self.curve_pre.setBrush(None)
+            self.curve_post.setBrush(None)
