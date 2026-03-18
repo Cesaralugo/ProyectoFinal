@@ -71,10 +71,7 @@ float Chorus_process(Chorus *ch, float input)
         if (lfoPhase[v] >= 1.0f) lfoPhase[v] -= 1.0f;
     }
 
-    wet = wet / NUM_VOICES;  
-    float out = input * (1.0f - ch->mix) + wet * ch->mix * 1.5f;
-    if (out >  1.2f) out =  1.2f;
-    if (out < -1.2f) out = -1.2f;
+    wet = wet / NUM_VOICES;
 
     // Feedback sumado sobre el input ya escrito
     for (int v = 0; v < NUM_VOICES; v++)
@@ -82,6 +79,7 @@ float Chorus_process(Chorus *ch, float input)
 
     writeIndex = (writeIndex + 1) % MAX_SAMPLES;
 
+    float out = input * (1.0f - ch->mix) + wet * ch->mix * 1.5f;
     if (out >  1.2f) out =  1.2f;
     if (out < -1.2f) out = -1.2f;
 
