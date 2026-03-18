@@ -43,7 +43,7 @@ float Chorus_process(Chorus *ch, float input)
     float feedback = ch->feedback * 0.25f;
     if (feedback > 0.24f) feedback = 0.24f;
 
-    float modDepth = ch->depth * 0.001f * SAMPLE_RATE;
+    float modDepth = ch->depth * 0.003f * SAMPLE_RATE;
 
     // Escribir input ANTES de leer
     for (int v = 0; v < NUM_VOICES; v++)
@@ -70,7 +70,7 @@ float Chorus_process(Chorus *ch, float input)
         if (lfoPhase[v] >= 1.0f) lfoPhase[v] -= 1.0f;
     }
 
-    wet /= NUM_VOICES;
+    wet = wet * (2.0f / NUM_VOICES);  
 
     // Feedback sumado sobre el input ya escrito
     for (int v = 0; v < NUM_VOICES; v++)
