@@ -359,10 +359,6 @@ int main()
                    batch_pre[0], batch_post[0], fx_order_count);
 
         // --- Enviar al socket Python ---
-        for (int s = 0; s < SERIAL_PACKET_SAMPLES; s++) {
-        batch_pre[s]  = (batch_pre[s]  + 1.0f) * 0.5f;  // → [0, 1]
-        batch_post[s] = (batch_post[s] + 1.0f) * 0.5f;
-        }
         socket_send_batch(batch_pre, batch_post, SERIAL_PACKET_SAMPLES);
     }
 
