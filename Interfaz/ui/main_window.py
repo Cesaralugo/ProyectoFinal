@@ -26,8 +26,8 @@ class MainWindow(QWidget):
         self.receiver.batch_received.connect(self.update_buffers_batch)
         self.receiver.start()
 
-        self.pre_buffer = deque(maxlen=8192)
-        self.signal_buffer = deque(maxlen=8192)
+        self.pre_buffer = deque(maxlen=4096)
+        self.signal_buffer = deque(maxlen=4096)
 
         self.t = 0
         
@@ -307,7 +307,7 @@ class MainWindow(QWidget):
         self.signal_buffer.extend(post_volts)
 
     def _compute_fft(self, buffer, accum_key):
-        N_FFT = 8192
+        N_FFT = 4096
         y = np.array(buffer, dtype=float)
         
         if len(y) < N_FFT:
