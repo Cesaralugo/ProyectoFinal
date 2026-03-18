@@ -356,7 +356,7 @@ class MainWindow(QWidget):
             self.plot_pre.setXRange(0, 20000)
             # Dinámico: pico real como techo, -90 como piso
             peak = float(np.max(Y_db[mask]))
-            self.plot_pre.setYRange(-90, peak + 5)
+            self.plot_pre.setYRange(-130, peak + 5)
             self.curve_pre.setData(freqs[mask], Y_db[mask])
 
         if not self.show_fft:
@@ -371,7 +371,7 @@ class MainWindow(QWidget):
             mask = freqs <= 20000
             self.plot_post.setXRange(0, 20000)
             peak = float(np.max(Y_db[mask]))
-            self.plot_post.setYRange(-90, peak + 5)
+            self.plot_post.setYRange(-130, peak + 5)
             self.curve_post.setData(freqs[mask], Y_db[mask])
 
     def handle_param_change(self, effect_id, param, value):
