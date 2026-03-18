@@ -129,7 +129,7 @@ int main()
 
     ParamMap map[] = {
         // Overdrive — interfaz manda 0-1, gain necesita escala
-        { "Overdrive",    "GAIN",      FX_OVERDRIVE,    &od.gain,          6.0f,  1.0f },
+        { "Overdrive",    "GAIN",      FX_OVERDRIVE,    &od.gain,          5.0f,  1.0f },
         { "Overdrive",    "TONE",      FX_OVERDRIVE,    &od.tone,          1.0f,  0.0f },
         { "Overdrive",    "OUTPUT",    FX_OVERDRIVE,    &od.output,        1.0f,  0.0f },
     
