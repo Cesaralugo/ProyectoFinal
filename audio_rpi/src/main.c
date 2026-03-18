@@ -287,7 +287,12 @@ int main()
                         enabled[map[m].fx_id] = fx_enabled;
                     }
                     if (!fx_enabled) continue;
-                    char *param_pos = strstr(params_block, map[m].param_key);
+
+                    char search_key[64];
+                    snprintf(search_key, sizeof(search_key), "\"%s\"", map[m].param_key);
+                    char *param_pos = strstr(params_block, search_key);
+                    if (!param_pos) continue;
+
                     if (!param_pos) continue;
                     char *colon = strchr(param_pos, ':');
                     if (!colon) continue;
