@@ -30,6 +30,11 @@ void Chorus_init(Chorus *ch, float rate, float depth, float feedback, float mix)
     ch->mix      = mix;
     memset(buffer, 0, sizeof(buffer));
     writeIndex   = 0;
+
+    // Pre-avanzar el writeIndex para que las voces tengan samples que leer
+    // El delay más largo es 25.3ms = ~1116 samples, avanzar el doble
+    writeIndex = (int)(0.030f * SAMPLE_RATE) % MAX_SAMPLES;
+
     for (int v = 0; v < NUM_VOICES; v++)
         lfoPhase[v] = voiceDetune[v];
 }
