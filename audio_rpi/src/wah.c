@@ -44,7 +44,7 @@ static void Wah_updateCoeffs(float center_freq, float q)
 
 float Wah_process(Wah *wah, float input)
 {
-    float lfo_rate = wah->freq;
+    float lfo_rate = 0.1f + wah->freq * 3.9f;
     if (lfo_rate < 0.1f) lfo_rate = 0.1f;
     if (lfo_rate > 4.0f) lfo_rate = 4.0f;
 
