@@ -37,17 +37,14 @@ void Chorus_init(Chorus *ch, float rate, float depth, float feedback, float mix)
 float Chorus_process(Chorus *ch, float input)
 {
     float rate = ch->rate;
-    if (rate < 0.01f) rate = 0.01f;
-    if (rate > 3.0f)  rate = 3.0f;
+    if (rate < 0.1f) rate = 0.1f;
+    if (rate > 3.0f) rate = 3.0f;
 
-    // Feedback limitado para evitar saturación
-    float feedback = ch->feedback * 0.5f;  // máximo real = 0.475
-    if (feedback > 0.48f) feedback = 0.48f;
+    float feedback = ch->feedback * 0.25f;
+    if (feedback > 0.24f) feedback = 0.24f;
 
-    float modDepth = ch->depth * 0.002f * SAMPLE_RATE;
+    float modDepth = ch->depth * 0.001f * SAMPLE_RATE;
 
-    // Escribir input una sola vez (compartido entre voces)
-    // El feedback se aplica sobre la señal mezclada, no por voz
     float wet = 0.0f;
 
     for (int v = 0; v < NUM_VOICES; v++) {
@@ -55,7 +52,7 @@ float Chorus_process(Chorus *ch, float input)
                       - (voiceDelay[v] * SAMPLE_RATE
                       +  sinf(2.0f * PI * lfoPhase[v]) * modDepth);
 
-        while (readPos < 0)          readPos += MAX_SAMPLES;
+        while (readPos < 0)            readPos += MAX_SAMPLES;
         while (readPos >= MAX_SAMPLES) readPos -= MAX_SAMPLES;
 
         int   i1      = (int)readPos % MAX_SAMPLES;
@@ -71,13 +68,12 @@ float Chorus_process(Chorus *ch, float input)
 
     wet /= NUM_VOICES;
 
-    // Feedback sobre señal mezclada, no individual — evita acumulación
     for (int v = 0; v < NUM_VOICES; v++)
         buffer[v][writeIndex] = input + wet * feedback;
 
     writeIndex = (writeIndex + 1) % MAX_SAMPLES;
 
-    // Soft clip de seguridad
+    // Sin atenuación extra del mix — wet ya está normalizado
     float out = input * (1.0f - ch->mix) + wet * ch->mix;
     if (out >  1.2f) out =  1.2f;
     if (out < -1.2f) out = -1.2f;
