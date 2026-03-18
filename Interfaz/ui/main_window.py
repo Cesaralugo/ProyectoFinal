@@ -286,7 +286,7 @@ class MainWindow(QWidget):
             "Delay": {"TIME":0.5,"FEEDBACK":0.3,"MIX":0.2},
             "Wah": {"FREQ":0.5,"Q":0.8,"LEVEL":1.0},
             "Flanger": {"RATE":0.5,"DEPTH":0.3,"FEEDBACK":0.2,"MIX":0.5},
-            "Chorus": {"RATE": 0.5, "DEPTH": 0.3, "FEEDBACK": 0.0, "MIX": 0.5},
+            "Chorus": {"RATE": 0.5, "DEPTH": 0.3, "FEEDBACK": 0.1, "MIX": 0.5},
             "Phaser": {"RATE":0.5,"DEPTH":0.7,"FEEDBACK":0.3,"MIX":0.5},
             "PitchShifter": {"SEMITONES":0.0,"MIX":0.5}
         }
