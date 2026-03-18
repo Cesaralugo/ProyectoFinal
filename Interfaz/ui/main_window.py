@@ -111,7 +111,11 @@ class MainWindow(QWidget):
         self.plot_pre.setLabel("bottom", "Time", **label_style)
         self.plot_pre.getAxis("left").setTextPen('white')
         self.plot_pre.getAxis("bottom").setTextPen('white')
-        self.curve_pre = self.plot_pre.plot(pen=pg.mkPen(color='c', width=2))
+        self.curve_pre = self.plot_pre.plot(
+            pen=pg.mkPen(color=(0, 180, 255), width=1.5),
+            fillLevel=-130,
+            brush=pg.mkBrush(0, 140, 255, 60)  # RGBA — el último valor es opacidad
+        )
         self.right_layout.addWidget(self.plot_pre)
 
         # Post
@@ -121,7 +125,11 @@ class MainWindow(QWidget):
         self.plot_post.setLabel("bottom", "Time", **label_style)
         self.plot_post.getAxis("left").setTextPen('white')
         self.plot_post.getAxis("bottom").setTextPen('white')
-        self.curve_post = self.plot_post.plot(pen=pg.mkPen(color='c', width=2))
+        self.curve_post = self.plot_post.plot(
+            pen=pg.mkPen(color=(0, 180, 255), width=1.5),
+            fillLevel=-130,
+            brush=pg.mkBrush(0, 140, 255, 60)
+        )
         self.right_layout.addWidget(self.plot_post)
 
         # Botón toggle
