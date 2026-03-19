@@ -39,7 +39,7 @@ static snd_pcm_t *alsa_init(unsigned int sample_rate)
     snd_pcm_t *handle;
     snd_pcm_hw_params_t *params;
 
-    if (snd_pcm_open(&handle, "default", SND_PCM_STREAM_PLAYBACK, 0) < 0) {
+    if (snd_pcm_open(&handle, "pipewire", SND_PCM_STREAM_PLAYBACK, 0) < 0) {
         fprintf(stderr, "Error abriendo dispositivo ALSA\n");
         return NULL;
     }
