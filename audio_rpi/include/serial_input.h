@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 // Debe coincidir con PACKET_SAMPLES del sketch Arduino
-#define SERIAL_PACKET_SAMPLES  128
+#define SERIAL_PACKET_SAMPLES 512
 
 // Busca el primer puerto ttyUSB* / ttyACM* disponible.
 // Devuelve el path (ej: "/dev/ttyUSB1") o NULL si no hay ninguno.
