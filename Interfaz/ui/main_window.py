@@ -295,7 +295,7 @@ class MainWindow(QWidget):
     
     #Generación del Json
     def generate_json(self):
-        print("JSON ready for C++: ")
+        print("JSON ready for C: ")
         print(self.model.to_json())
 
     def update_buffer(self, value):
