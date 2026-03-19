@@ -49,7 +49,7 @@ static snd_pcm_t *alsa_init(unsigned int sample_rate)
     snd_pcm_hw_params_set_channels(handle, params, 1);
     snd_pcm_hw_params_set_rate(handle, params, sample_rate, 0);
 
-    snd_pcm_uframes_t buffer_size = 4096;
+    snd_pcm_uframes_t buffer_size = 16384;
     snd_pcm_uframes_t period_size = SERIAL_PACKET_SAMPLES;
     snd_pcm_hw_params_set_buffer_size_near(handle, params, &buffer_size);
     snd_pcm_hw_params_set_period_size_near(handle, params, &period_size, 0);
