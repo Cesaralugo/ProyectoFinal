@@ -118,6 +118,11 @@ float process_effect(int fx_id, float sig,
 // =============================================================================
 int main()
 {
+    struct sched_param sp = { .sched_priority = 50 };
+    if (sched_setscheduler(0, SCHED_FIFO, &sp) < 0)
+        fprintf(stderr, "[rt] advertencia: no se pudo setear SCHED_FIFO (ejecutar como root?)\n");
+    mlockall(MCL_CURRENT | MCL_FUTURE);
+
     // --- Inicializar efectos ---
     Delay        delay;   Delay_init(&delay, 1.0f, 0.5f, 0.4f);
     Overdrive    od;      Overdrive_init(&od, 0.0f, 0.0f, 0.0f);
