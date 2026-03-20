@@ -351,7 +351,7 @@ class MainWindow(QWidget):
         x_post = np.arange(len(post_data))
 
         if not self.show_fft:
-            DISPLAY_SAMPLES = 2048
+            DISPLAY_SAMPLES = 512
             pre_display  = pre_data[-DISPLAY_SAMPLES:] if len(pre_data) > DISPLAY_SAMPLES else pre_data
             post_display = post_data[-DISPLAY_SAMPLES:] if len(post_data) > DISPLAY_SAMPLES else post_data
 
