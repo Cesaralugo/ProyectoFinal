@@ -331,7 +331,7 @@ class MainWindow(QWidget):
         if prev is None or prev.shape != Y_db.shape:
             setattr(self, accum_key, Y_db)
         else:
-            smoothed = 0.7 * prev + 0.3 * Y_db  # α=0.3 
+            smoothed = 0.5 * prev + 0.5 * Y_db  # α=0.3 
             setattr(self, accum_key, smoothed)
 
         freqs = np.fft.rfftfreq(N_FFT, d=1.0 / self.SAMPLE_RATE)
