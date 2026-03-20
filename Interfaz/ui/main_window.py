@@ -366,15 +366,10 @@ class MainWindow(QWidget):
             mask = freqs_pre <= 20000
 
             if not self.user_zoom:
-                peak_pre  = float(np.max(Y_pre[mask]))
-                floor_pre = float(np.min(Y_pre[mask]))
-                peak_post  = float(np.max(Y_post[mask]))
-                floor_post = float(np.min(Y_post[mask]))
-
                 self.plot_pre.setXRange(0, 20000)
-                self.plot_pre.setYRange(floor_pre - 5, peak_pre + 5)
+                self.plot_pre.setYRange(-150, 0)
                 self.plot_post.setXRange(0, 20000)
-                self.plot_post.setYRange(floor_post - 5, peak_post + 5)
+                self.plot_post.setYRange(-150, 0)
 
             self.plot_pre.setLabel("bottom", "Frequency (Hz)")
             self.plot_pre.setLabel("left", "Magnitude (dBFS)")
