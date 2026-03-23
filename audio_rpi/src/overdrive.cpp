@@ -1,26 +1,29 @@
-#include "daisysp.h"
 #include "overdrive.h"
-
-static daisysp::Overdrive g_od;
+#include <math.h>
 
 extern "C" void Overdrive_init(Overdrive *od, float gain, float tone, float output)
 {
     od->gain   = gain;
     od->tone   = tone;
     od->output = output;
-    g_od.Init();
-    g_od.SetDrive(gain);
 }
 
 extern "C" float Overdrive_process(Overdrive *od, float input)
 {
-    g_od.SetDrive(od->gain);
+    // Gain: 1 a 6x (suave, no 5x como antes)
+    float drive = 1.0f + od->gain * 5.0f;
+    float sig   = input * drive;
 
-    float wet = g_od.Process(input);
+    // Soft clipping cúbico — más suave que tanh
+    if      (sig >  1.0f) sig =  2.0f/3.0f;
+    else if (sig < -1.0f) sig = -2.0f/3.0f;
+    else                  sig = sig - (sig * sig * sig) / 3.0f;
 
-    // tone: mezcla wet con señal limpia (igual que antes)
-    float sig = wet * od->tone + input * (1.0f - od->tone);
+    // Normalizar para compensar el gain
+    sig /= (2.0f/3.0f);
 
-    // output: nivel final
+    // tone: blend wet/dry
+    sig = sig * od->tone + input * (1.0f - od->tone);
+
     return sig * od->output;
 }
