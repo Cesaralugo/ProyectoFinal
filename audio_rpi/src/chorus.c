@@ -6,21 +6,15 @@
 #define MAX_SAMPLES ((int)(CHORUS_MAX_DELAY_MS * SAMPLE_RATE / 1000))
 #define NUM_VOICES 3
 
+// Predelay por voz en ms — clave para sonar a chorus y no a vibrato
+static const float voicePredelay[NUM_VOICES] = { 25.0f, 30.0f, 35.0f };
+
+// Detune de fase del LFO por voz (0, 120°, 240°)
+static const float voiceDetune[NUM_VOICES] = { 0.0f, 0.333f, 0.666f };
+
 static float buffer[NUM_VOICES][MAX_SAMPLES];
 static int   writeIndex = 0;
 static float lfoPhase[NUM_VOICES];
-
-static const float voiceDelay[NUM_VOICES] = {
-    0.0217f,
-    0.0190f,
-    0.0253f
-};
-
-static const float voiceDetune[NUM_VOICES] = {
-    0.0f,
-    0.25f,   // 90° de fase
-    0.5f     // 180° de fase
-};
 
 void Chorus_init(Chorus *ch, float rate, float depth, float feedback, float mix)
 {
@@ -36,27 +30,26 @@ void Chorus_init(Chorus *ch, float rate, float depth, float feedback, float mix)
 
 float Chorus_process(Chorus *ch, float input)
 {
-    float rate = ch->rate;
+    float rate  = ch->rate;
     if (rate < 0.1f) rate = 0.1f;
     if (rate > 3.0f) rate = 3.0f;
 
-    float feedback = ch->feedback * 0.25f;
-    if (feedback > 0.24f) feedback = 0.24f;
+    // depth en ms (igual que MATLAB), máx ~10ms de modulación
+    float depthMS = ch->depth * 10.0f;
 
-    float modDepth = ch->depth * 0.002f * SAMPLE_RATE;
-    if (modDepth > 88.2f) modDepth = 88.2f;
-
-    // Escribir input ANTES de leer
-    for (int v = 0; v < NUM_VOICES; v++)
-        buffer[v][writeIndex] = input;
+    // feedback suave
+    float feedback = ch->feedback * 0.3f;
+    if (feedback > 0.29f) feedback = 0.29f;
 
     float wet = 0.0f;
 
     for (int v = 0; v < NUM_VOICES; v++) {
-        float readPos = (float)writeIndex
-                      - (voiceDelay[v] * SAMPLE_RATE
-                      +  sinf(2.0f * PI * lfoPhase[v]) * modDepth);
+        // LFO en ms, igual que MATLAB: depth * sin(...) + predelay
+        float lfoMS     = depthMS * sinf(2.0f * PI * lfoPhase[v]) + voicePredelay[v];
+        float lfoSamples = (lfoMS / 1000.0f) * SAMPLE_RATE;
 
+        // Leer con interpolación lineal
+        float readPos = (float)writeIndex - lfoSamples;
         while (readPos < 0)            readPos += MAX_SAMPLES;
         while (readPos >= MAX_SAMPLES) readPos -= MAX_SAMPLES;
 
@@ -67,21 +60,25 @@ float Chorus_process(Chorus *ch, float input)
 
         wet += delayed;
 
+        // Avanzar fase del LFO
         lfoPhase[v] += rate / SAMPLE_RATE;
         if (lfoPhase[v] >= 1.0f) lfoPhase[v] -= 1.0f;
     }
 
-    wet = wet / NUM_VOICES;
+    wet /= NUM_VOICES;
 
-    // Feedback sumado sobre el input ya escrito
+    // Escribir en buffer con feedback (como MATLAB: buffer = [in + feedback*wet; ...])
     for (int v = 0; v < NUM_VOICES; v++)
-        buffer[v][writeIndex] += wet * feedback;
+        buffer[v][writeIndex] = input + feedback * wet;
 
     writeIndex = (writeIndex + 1) % MAX_SAMPLES;
 
-    float out = input * (1.0f - ch->mix) + wet * ch->mix * 1.5f;
-    if (out >  1.2f) out =  1.2f;
-    if (out < -1.2f) out = -1.2f;
+    // Mezcla dry/wet
+    float out = input * (1.0f - ch->mix) + wet * ch->mix;
+
+    // Soft clip suave
+    if (out >  1.0f) out =  1.0f;
+    if (out < -1.0f) out = -1.0f;
 
     return out;
 }
