@@ -130,7 +130,7 @@ int main()
     Delay        delay;   Delay_init(&delay, 1.0f, 0.5f, 0.4f);
     Overdrive    od;      Overdrive_init(&od, 0.0f, 0.0f, 0.0f);
     Wah          wah;     Wah_init(&wah, 0.7f, 5.0f, 1.0f);
-    Chorus       ch;      Chorus_init(&ch, 0.5f, 0.3f, 0.0f, 0.5f);
+    Chorus       ch;      Chorus_init(&ch, 0.5f, 0.3f, 0.1f, 0.5f);
     Flanger      flanger; Flanger_init(&flanger, 0.25f, 0.7f, 0.3f, 0.5f);
     PitchShifter pitch;   PitchShifter_init(&pitch, 7.0f, 0.5f);
     Phaser       phaser;  Phaser_init(&phaser, 0.5f, 0.7f, 0.3f, 0.5f);

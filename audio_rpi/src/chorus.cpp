@@ -166,7 +166,7 @@ extern "C" float Chorus_process(Chorus *ch, float input)
     float freq = 0.5f + ch->rate * ch->rate * 9.5f;
     g_chorus.SetLfoFreq(freq);
     g_chorus.SetLfoDepth(ch->depth);
-    g_chorus.SetFeedback(ch->feedback * 0.7f);
+    g_chorus.SetFeedback(ch->feedback * 0.5f);
     g_chorus.SetDelay(0.3f + ch->depth * 0.4f); // delay dinámico con depth
 
     float wet = g_chorus.Process(input);
