@@ -3,9 +3,9 @@ CXX      = g++
 CFLAGS   = -Iinclude -Wall -O2
 CXXFLAGS = -Iinclude -Wall -O2 -std=c++14
 
-# Todos los .c excepto chorus.c (reemplazado por .cpp)
-C_SRC   = $(filter-out src/chorus.c, $(wildcard src/*.c))
-CPP_SRC = src/chorus.cpp
+# Archivos C — excluir los que tienen versión .cpp
+C_SRC   = $(filter-out src/chorus.c src/pitch_shifter.c, $(wildcard src/*.c))
+CPP_SRC = src/chorus.cpp src/pitch_shifter.cpp
 
 C_OBJ   = $(C_SRC:.c=.o)
 CPP_OBJ = $(CPP_SRC:.cpp=.o)

@@ -14,6 +14,8 @@ namespace daisysp
 {
 constexpr float kPi     = 3.14159265358979323846f;
 constexpr float kTwoPi  = 6.28318530717958647692f;
+constexpr float PI_F    = 3.14159265358979323846f;
+constexpr float TWOPI_F = 6.28318530717958647692f;
 
 inline float fclamp(float in, float min, float max)
 {
