@@ -5,7 +5,7 @@
 #define PI 3.14159265358979323846f
 
 // Buffer de 50ms máximo — suficiente para chorus, no para eco
-#define MAX_SAMPLES ((int)(0.05f * SAMPLE_RATE))  // 2205 samples @ 44100
+#define MAX_SAMPLES 2205  // 50ms @ 44100 Hz
 
 static float buf_l[MAX_SAMPLES];
 static float buf_r[MAX_SAMPLES];
