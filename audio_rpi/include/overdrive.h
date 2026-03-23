@@ -1,19 +1,21 @@
 #ifndef OVERDRIVE_H
 #define OVERDRIVE_H
 
-#define SAMPLE_RATE 44100
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct {
-    float gain;    // cuánto amplifica la señal
-    float tone;    // control de brillo 
-    float output;  // nivel final de salida
+    float gain;
+    float tone;
+    float output;
 } Overdrive;
 
-// Inicializa el efecto
-void Overdrive_init(Overdrive *od, float gain, float tone, float output);
-
-// Procesa una sola muestra
+void  Overdrive_init(Overdrive *od, float gain, float tone, float output);
 float Overdrive_process(Overdrive *od, float input);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
