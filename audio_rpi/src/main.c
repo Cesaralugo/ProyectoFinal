@@ -25,7 +25,7 @@
 // SIM_MODE 0 → lectura real desde ESP32 por serial
 // SIM_MODE 1 → señal sin() simulada a 440 Hz
 // SIM_MODE 2 → loop de archivo WAV
-#define SIM_MODE  2
+#define SIM_MODE  1
 #define WAV_FILE  "UribeUribe_44k.wav"
 
 #define SERIAL_PORT NULL
