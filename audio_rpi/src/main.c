@@ -26,7 +26,7 @@
 // SIM_MODE 1 → señal sin() simulada a 440 Hz
 // SIM_MODE 2 → loop de archivo WAV
 #define SIM_MODE  2
-#define WAV_FILE  "soft-guitar-counted-out_132bpm.wav"
+#define WAV_FILE  "UribeUribe.wav"
 
 #define SERIAL_PORT NULL
 #define SERIAL_BAUD  460800
