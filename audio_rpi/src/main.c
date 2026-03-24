@@ -364,7 +364,7 @@ int main()
             float sig = batch_pre[s];
             for (int k = 0; k < fx_order_count; k++)
                 sig = process_effect(fx_order[k], sig,
-                                     &od, &wah, &ch, &flanger, &pitch, &delay, &phaser);
+                                     &od, &wah, &ch, &flanger, &pitch, &delay, &phaser, &reverb);
             batch_post[s] = sig;
             total_samples++;
         }
