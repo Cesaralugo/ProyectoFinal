@@ -8,7 +8,7 @@ CXXFLAGS = -Iinclude -I$(DAISY) -I$(DAISY)/Utility -I$(DAISY)/Control \
 C_SRC   = $(filter-out src/chorus.c src/pitch_shifter.c src/overdrive.c, $(wildcard src/*.c))
 
 CPP_SRC = src/chorus.cpp src/pitch_shifter.cpp src/overdrive.cpp \
-          src/reverb.cpp src/reverbsc.cpp \
+          src/reverb.cpp \
           $(DAISY)/Control/phasor.cpp \
           $(DAISY)/Effects/overdrive.cpp
 
