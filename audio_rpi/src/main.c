@@ -104,7 +104,7 @@ typedef struct {
 // =============================================================================
 float process_effect(int fx_id, float sig,
                      Overdrive *od, Wah *wah, Chorus *ch,
-                     Flanger *flanger, PitchShifter *pitch, Delay *delay, Phaser *phaser)
+                     Flanger *flanger, PitchShifter *pitch, Delay *delay, Phaser *phaser, Reverb *reverb)
 {
     switch (fx_id) {
         case FX_OVERDRIVE:    return Overdrive_process(od, sig);
@@ -114,7 +114,7 @@ float process_effect(int fx_id, float sig,
         case FX_PITCHSHIFTER: return PitchShifter_process(pitch, sig);
         case FX_DELAY:        return Delay_process(delay, sig);
         case FX_PHASER:       return Phaser_process(phaser, sig);
-        case FX_REVERB:       return Reverb_process(&reverb, sig);
+        case FX_REVERB:       return Reverb_process(reverb, sig);
         default:              return sig;
     }
 }
