@@ -21,6 +21,7 @@ class EffectWidget(QWidget):
         "SEMITONES_B":(-12, 12, "st"),
         "MIX_A":      (0, 1, ""),
         "MIX_B":      (0, 1, ""),
+        "LPFREQ": (200, 18000, "Hz"),
     }
 
     def __init__(self, effect_data):

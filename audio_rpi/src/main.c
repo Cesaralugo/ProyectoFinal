@@ -17,6 +17,8 @@
 #include "../include/flanger.h"
 #include "../include/pitch_shifter.h"
 #include "../include/phaser.h"
+#include "../include/reverb.h"
+
 
 #define SAMPLE_RATE 44100
 #define PI 3.14159265358979323846f
@@ -75,8 +77,9 @@ static snd_pcm_t *alsa_init(unsigned int sample_rate)
 #define FX_CHORUS        3
 #define FX_FLANGER       4
 #define FX_PITCHSHIFTER  5
-#define FX_PHASER        6
-#define FX_COUNT         7
+#define FX_PHASER        6  
+#define FX_REVERB        7
+#define FX_COUNT         8
 
 int enabled[FX_COUNT]  = {0};
 int fx_order[FX_COUNT] = {0};
@@ -111,6 +114,7 @@ float process_effect(int fx_id, float sig,
         case FX_PITCHSHIFTER: return PitchShifter_process(pitch, sig);
         case FX_DELAY:        return Delay_process(delay, sig);
         case FX_PHASER:       return Phaser_process(phaser, sig);
+        case FX_REVERB:       return Reverb_process(reverb, sig);
         default:              return sig;
     }
 }
@@ -134,6 +138,7 @@ int main()
     Flanger      flanger; Flanger_init(&flanger, 0.25f, 0.7f, 0.3f, 0.5f);
     PitchShifter pitch;   PitchShifter_init(&pitch, 7.0f, 0.5f);
     Phaser       phaser;  Phaser_init(&phaser, 0.5f, 0.7f, 0.3f, 0.5f);
+    Reverb       reverb;  Reverb_init(&reverb, );
 
     ParamMap map[] = {
         // Overdrive — interfaz manda 0-1, gain necesita escala
@@ -175,6 +180,10 @@ int main()
         { "Phaser",       "DEPTH",     FX_PHASER,       &phaser.depth,     1.0f,  0.0f },
         { "Phaser",       "FEEDBACK",  FX_PHASER,       &phaser.feedback,  1.0f,  0.0f },
         { "Phaser",       "MIX",       FX_PHASER,       &phaser.mix,       1.0f,  0.0f },
+
+        { "Reverb",       "FEEDBACK",  FX_REVERB,       &reverb.feedback,  1.0f, 0.0f },
+        { "Reverb",       "LPFREQ",    FX_REVERB,       &reverb.lpfreq,    1.0f, 0.0f },
+        { "Reverb",       "MIX",       FX_REVERB,       &reverb.mix,       1.0f, 0.0f },
     };
     int map_size = sizeof(map) / sizeof(map[0]);
 
