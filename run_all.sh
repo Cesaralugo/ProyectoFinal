@@ -1,5 +1,18 @@
 #!/bin/bash
 
+# Función que mata todo al presionar Ctrl+C
+cleanup() {
+    echo ""
+    echo "Deteniendo procesos..."
+    kill $AUDIO_PID $GUI_PID 2>/dev/null
+    sudo pkill -9 -f audio_engine 2>/dev/null
+    pkill -9 -f main.py 2>/dev/null
+    exit 0
+}
+
+# Atrapar Ctrl+C y llamar cleanup
+trap cleanup SIGINT SIGTERM
+
 echo "Performance governor..."
 echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null
 
@@ -10,7 +23,7 @@ sleep 0.5
 
 cd audio_rpi
 echo "Iniciando servidor C..."
-taskset 0x1 ./audio_engine &   # sin sudo — setcap ya le dio los permisos RT
+taskset 0x1 ./audio_engine &
 AUDIO_PID=$!
 
 echo "Esperando socket..."
@@ -30,5 +43,6 @@ cd ../Interfaz
 source ../env/bin/activate
 echo "Iniciando interfaz..."
 taskset 0x6 python main.py &
+GUI_PID=$!
 
 wait
