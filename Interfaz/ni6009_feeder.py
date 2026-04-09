@@ -54,18 +54,15 @@ def build_packet(samples_volts, v_min, v_max):
     return SYNC_WORD + payload
 
 def open_pipe():
-    """Create (or reuse) the named pipe and open it for writing."""
-    if not os.path.exists(PIPE_PATH):
-        os.mkfifo(PIPE_PATH)
-        print(f"[feeder] created pipe at {PIPE_PATH}")
-    else:
-        print(f"[feeder] reusing existing pipe at {PIPE_PATH}")
-
-    print("[feeder] waiting for C reader to open the pipe…")
-    # open() blocks until the reader (C process) opens the other end
-    fd = open(PIPE_PATH, "wb", buffering=0)
-    print("[feeder] pipe open — streaming audio")
-    return fd
+    pipe = win32pipe.CreateNamedPipe(
+        PIPE_NAME,
+        win32pipe.PIPE_ACCESS_OUTBOUND,
+        win32pipe.PIPE_TYPE_BYTE | win32pipe.PIPE_WAIT,
+        1, 65536, 65536, 0, None)
+    print("[feeder] waiting for C reader to connect...")
+    win32pipe.ConnectNamedPipe(pipe, None)
+    print("[feeder] pipe connected — streaming audio")
+    return pipe
 
 def main():
     global running
@@ -103,8 +100,7 @@ def main():
     print(f"         voltage range: {v_min} V – {v_max} V")
     print(f"         packet size:   {PACKET_SAMPLES} samples")
 
-    pipe_fd = open_pipe()
-
+    pipe_handle = open_pipe()
     try:
         with nidaqmx.Task() as task:
             task.ai_channels.add_ai_voltage_chan(
@@ -134,7 +130,7 @@ def main():
                 packet = build_packet(samples, v_min, v_max)
 
                 try:
-                    pipe_fd.write(packet)
+                    win32file.WriteFile(pipe_handle, packet)
                 except BrokenPipeError:
                     print("[feeder] pipe reader closed — exiting")
                     break
@@ -149,7 +145,7 @@ def main():
     except nidaqmx.errors.DaqError as e:
         print(f"[feeder] DAQmx error: {e}")
     finally:
-        pipe_fd.close()
+        win32file.CloseHandle(pipe_handle)
         print("[feeder] done")
 
 if __name__ == "__main__":

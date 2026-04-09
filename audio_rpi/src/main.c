@@ -1,13 +1,10 @@
 #include <stdio.h>
 #include <math.h>
-#include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-#include <alsa/asoundlib.h>
-#include <sndfile.h>
-#include <sched.h>
-#include <sys/mman.h>
-#include <fcntl.h>
+#include <stdint.h>
+#include <windows.h>
+#include <portaudio.h>
 
 #include "../include/socket_server.h"
 #include "../include/serial_input.h"
@@ -20,96 +17,71 @@
 #include "../include/phaser.h"
 #include "../include/reverb.h"
 
-
-#define SAMPLE_RATE 44100
-#define PI 3.14159265358979323846f
-
-// ── Modo de entrada ───────────────────────────────────────────────────────────
-// SIM_MODE 0 → lectura real desde ESP32 por serial
-// SIM_MODE 1 → señal sin() simulada a 440 Hz
-// SIM_MODE 2 → loop de archivo WAV
-#define SIM_MODE  3
-#define PIPE_PATH "/tmp/ni6009_pipe"   // ← add this line
-#define WAV_FILE  "UribeUribe_44k.wav"
-
-#define SERIAL_PORT NULL
-#define SERIAL_BAUD  460800
-
-// FIX #1: Acumular N batches antes de escribir a ALSA para tener un
-// periodo más grande y reducir la frecuencia de xruns en la RPi4.
-// 4 × 128 = 512 frames → ~11.6 ms de margen por escritura.
+#define SAMPLE_RATE        44100
+#define PI                 3.14159265358979323846f
 #define ALSA_WRITE_BATCHES 4
-#define ALSA_PERIOD_FRAMES (SERIAL_PACKET_SAMPLES * ALSA_WRITE_BATCHES)  // 512
+#define ALSA_PERIOD_FRAMES (SERIAL_PACKET_SAMPLES * ALSA_WRITE_BATCHES)
 
-// ALSA
-static snd_pcm_t *alsa_init(unsigned int sample_rate)
+#define SIM_MODE    1
+#define SERIAL_PORT NULL
+#define SERIAL_BAUD 460800
+
+// ── PortAudio (replaces ALSA) ─────────────────────────────────────────────────
+
+static PaStream *pa_stream = NULL;
+
+static PaStream *alsa_init(unsigned int sample_rate)
 {
-    snd_pcm_t *handle;
-    snd_pcm_hw_params_t *params;
-                            //Change to default if wanna use bluetooth
-    if (snd_pcm_open(&handle, "default", SND_PCM_STREAM_PLAYBACK, 0) < 0) {
-        fprintf(stderr, "Error abriendo dispositivo ALSA\n");
+    Pa_Initialize();
+    PaStreamParameters out;
+    memset(&out, 0, sizeof(out));
+    out.device                    = Pa_GetDefaultOutputDevice();
+    out.channelCount              = 1;
+    out.sampleFormat              = paInt16;
+    out.suggestedLatency          = Pa_GetDeviceInfo(out.device)->defaultLowOutputLatency;
+    out.hostApiSpecificStreamInfo = NULL;
+
+    PaStream *stream;
+    PaError err = Pa_OpenStream(&stream, NULL, &out,
+                                sample_rate, ALSA_PERIOD_FRAMES,
+                                paClipOff, NULL, NULL);
+    if (err != paNoError) {
+        fprintf(stderr, "PortAudio error: %s\n", Pa_GetErrorText(err));
         return NULL;
     }
-
-    snd_pcm_hw_params_alloca(&params);
-    snd_pcm_hw_params_any(handle, params);
-    snd_pcm_hw_params_set_access(handle, params, SND_PCM_ACCESS_RW_INTERLEAVED);
-    snd_pcm_hw_params_set_format(handle, params, SND_PCM_FORMAT_S16_LE);
-    snd_pcm_hw_params_set_channels(handle, params, 1);
-    snd_pcm_hw_params_set_rate(handle, params, sample_rate, 0);
-
-    snd_pcm_uframes_t buffer_size = 4096;
-    snd_pcm_uframes_t period_size = ALSA_PERIOD_FRAMES;
-    snd_pcm_hw_params_set_buffer_size_near(handle, params, &buffer_size);
-    snd_pcm_hw_params_set_period_size_near(handle, params, &period_size, 0);
-
-    if (snd_pcm_hw_params(handle, params) < 0) {
-        fprintf(stderr, "Error configurando ALSA\n");
-        snd_pcm_close(handle);
-        return NULL;
-    }
-
-    snd_pcm_uframes_t actual_period, actual_buffer;
-    snd_pcm_hw_params_get_period_size(params, &actual_period, 0);
-    snd_pcm_hw_params_get_buffer_size(params, &actual_buffer);
-    printf("ALSA listo a %u Hz | period=%lu frames | buffer=%lu frames\n",
-           sample_rate, actual_period, actual_buffer);
-
-    return handle;
+    Pa_StartStream(stream);
+    printf("PortAudio ready at %u Hz | period=%d frames\n",
+           sample_rate, ALSA_PERIOD_FRAMES);
+    return stream;
 }
 
-static void alsa_write_safe(snd_pcm_t *pcm, const int16_t *buf, snd_pcm_uframes_t frames)
+static void alsa_write_safe(PaStream *stream, const int16_t *buf, int frames)
 {
-    int rc = snd_pcm_writei(pcm, buf, frames);
-    if (rc == -EPIPE) {
-        // Underrun: preparar y reintentar
-        snd_pcm_prepare(pcm);
-        snd_pcm_writei(pcm, buf, frames);
-    } else if (rc < 0) {
-        snd_pcm_recover(pcm, rc, 0);
-        snd_pcm_writei(pcm, buf, frames);
-    }
+    PaError err = Pa_WriteStream(stream, buf, frames);
+    if (err == paOutputUnderflowed)
+        fprintf(stderr, "[pa] underflow\n");
+    else if (err != paNoError)
+        fprintf(stderr, "[pa] write error: %s\n", Pa_GetErrorText(err));
 }
 
-// IDs de efectos
-#define FX_OVERDRIVE     0
-#define FX_WAH           1
-#define FX_DELAY         2
-#define FX_CHORUS        3
-#define FX_FLANGER       4
-#define FX_PITCHSHIFTER  5
-#define FX_PHASER        6  
-#define FX_REVERB        7
-#define FX_COUNT         8
+// ── Effect IDs ────────────────────────────────────────────────────────────────
+
+#define FX_OVERDRIVE    0
+#define FX_WAH          1
+#define FX_DELAY        2
+#define FX_CHORUS       3
+#define FX_FLANGER      4
+#define FX_PITCHSHIFTER 5
+#define FX_PHASER       6
+#define FX_REVERB       7
+#define FX_COUNT        8
 
 int enabled[FX_COUNT]  = {0};
 int fx_order[FX_COUNT] = {0};
-int fx_order_count     =  0;
+int fx_order_count     = 0;
 
 char json_buffer[4096];
 
-// ParamMap
 typedef struct {
     const char *effect_key;
     const char *param_key;
@@ -119,10 +91,10 @@ typedef struct {
     float       offset;
 } ParamMap;
 
-// Dispatcher de efectos
 float process_effect(int fx_id, float sig,
                      Overdrive *od, Wah *wah, Chorus *ch,
-                     Flanger *flanger, PitchShifter *pitch, Delay *delay, Phaser *phaser, Reverb *reverb)
+                     Flanger *flanger, PitchShifter *pitch,
+                     Delay *delay, Phaser *phaser, Reverb *reverb)
 {
     switch (fx_id) {
         case FX_OVERDRIVE:    return Overdrive_process(od, sig);
@@ -137,21 +109,48 @@ float process_effect(int fx_id, float sig,
     }
 }
 
-// MAIN
-int main()
+// ── Windows named pipe packet reader ─────────────────────────────────────────
+
+#if SIM_MODE == 3
+static int win_read_packet(HANDLE h, uint16_t *out_samples)
 {
-    struct sched_param sp = { .sched_priority = 50 };
-    if (sched_setscheduler(0, SCHED_FIFO, &sp) < 0)
-        fprintf(stderr, "[rt] advertencia: no se pudo setear SCHED_FIFO (ejecutar como root?)\n");
+    static const uint8_t SYNC[4] = {0xAA, 0x55, 0xFF, 0x00};
+    uint8_t window[4] = {0};
+    DWORD read_bytes;
 
+    for (int t = 0; t < SERIAL_PACKET_SAMPLES * 16; t++) {
+        uint8_t b;
+        if (!ReadFile(h, &b, 1, &read_bytes, NULL) || read_bytes == 0)
+            return -1;
+        window[0] = window[1];
+        window[1] = window[2];
+        window[2] = window[3];
+        window[3] = b;
+        if (memcmp(window, SYNC, 4) == 0)
+            goto found_sync;
+    }
+    return -1;
 
-#ifdef __arm__
-    // Solo habilitar en RPi (ARM); en PC de desarrollo puede fallar sin root
-    if (mlockall(MCL_CURRENT | MCL_FUTURE) < 0)
-        fprintf(stderr, "[rt] advertencia: mlockall falló (ejecutar como root?)\n");
+found_sync:;
+    uint8_t raw[SERIAL_PACKET_SAMPLES * 2];
+    DWORD total = 0;
+    while (total < sizeof(raw)) {
+        if (!ReadFile(h, raw + total, (DWORD)(sizeof(raw) - total), &read_bytes, NULL))
+            return -1;
+        total += read_bytes;
+    }
+    for (int i = 0; i < SERIAL_PACKET_SAMPLES; i++)
+        out_samples[i] = (uint16_t)raw[i * 2] | ((uint16_t)raw[i * 2 + 1] << 8);
+    return 0;
+}
 #endif
-    
-    // --- Inicializar efectos ---
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+int main(void)
+{
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+
     Delay        delay;   Delay_init(&delay, 1.0f, 0.5f, 0.4f);
     Overdrive    od;      Overdrive_init(&od, 0.0f, 0.0f, 0.0f);
     Wah          wah;     Wah_init(&wah, 0.7f, 5.0f, 1.0f);
@@ -162,58 +161,44 @@ int main()
     Reverb       reverb;  Reverb_init(&reverb, 0.8f, 8000.0f, 0.3f);
 
     ParamMap map[] = {
-        // Overdrive — interfaz manda 0-1, gain necesita escala
-        { "Overdrive",    "GAIN",      FX_OVERDRIVE,    &od.gain,          1.0f,  0.0f },
-        { "Overdrive",    "TONE",      FX_OVERDRIVE,    &od.tone,          1.0f,  0.0f },
-        { "Overdrive",    "OUTPUT",    FX_OVERDRIVE,    &od.output,        1.0f,  0.0f },
-    
-        // Wah — interfaz ya manda FREQ en Hz, Q en 0.1-10, LEVEL en 0-1
-        { "Wah",          "FREQ",      FX_WAH,          &wah.freq,         1.0f,  0.0f },
-        { "Wah",          "Q",         FX_WAH,          &wah.q,            1.0f,  0.0f },
-        { "Wah",          "LEVEL",     FX_WAH,          &wah.level,        1.0f,  0.0f },
-    
-        // Delay — interfaz ya manda TIME en ms (1-1000)
-        { "Delay",        "TIME",      FX_DELAY,        &delay.delay_ms,   1.0f,  0.0f },
-        { "Delay",        "FEEDBACK",  FX_DELAY,        &delay.feedback,   1.0f,  0.0f },
-        { "Delay",        "MIX",       FX_DELAY,        &delay.mix,        1.0f,  0.0f },
-    
-        // Chorus — todo 0-1
-        { "Chorus",       "RATE",      FX_CHORUS,       &ch.rate,          1.0f,  0.0f },
-        { "Chorus",       "DEPTH",     FX_CHORUS,       &ch.depth,         1.0f,  0.0f },
-        { "Chorus",       "FEEDBACK",  FX_CHORUS,       &ch.feedback,      1.0f,  0.0f },
-        { "Chorus",       "MIX",       FX_CHORUS,       &ch.mix,           1.0f,  0.0f },
-    
-        // Flanger — todo 0-1
-        { "Flanger",      "RATE",      FX_FLANGER,      &flanger.rate,     1.0f,  0.0f },
-        { "Flanger",      "DEPTH",     FX_FLANGER,      &flanger.depth,    1.0f,  0.0f },
-        { "Flanger",      "FEEDBACK",  FX_FLANGER,      &flanger.feedback, 1.0f,  0.0f },
-        { "Flanger",      "MIX",       FX_FLANGER,      &flanger.mix,      1.0f,  0.0f },
-    
-        // PitchShifter — interfaz ya manda -12 a 12
+        { "Overdrive",    "GAIN",        FX_OVERDRIVE,    &od.gain,           1.0f, 0.0f },
+        { "Overdrive",    "TONE",        FX_OVERDRIVE,    &od.tone,           1.0f, 0.0f },
+        { "Overdrive",    "OUTPUT",      FX_OVERDRIVE,    &od.output,         1.0f, 0.0f },
+        { "Wah",          "FREQ",        FX_WAH,          &wah.freq,          1.0f, 0.0f },
+        { "Wah",          "Q",           FX_WAH,          &wah.q,             1.0f, 0.0f },
+        { "Wah",          "LEVEL",       FX_WAH,          &wah.level,         1.0f, 0.0f },
+        { "Delay",        "TIME",        FX_DELAY,        &delay.delay_ms,    1.0f, 0.0f },
+        { "Delay",        "FEEDBACK",    FX_DELAY,        &delay.feedback,    1.0f, 0.0f },
+        { "Delay",        "MIX",         FX_DELAY,        &delay.mix,         1.0f, 0.0f },
+        { "Chorus",       "RATE",        FX_CHORUS,       &ch.rate,           1.0f, 0.0f },
+        { "Chorus",       "DEPTH",       FX_CHORUS,       &ch.depth,          1.0f, 0.0f },
+        { "Chorus",       "FEEDBACK",    FX_CHORUS,       &ch.feedback,       1.0f, 0.0f },
+        { "Chorus",       "MIX",         FX_CHORUS,       &ch.mix,            1.0f, 0.0f },
+        { "Flanger",      "RATE",        FX_FLANGER,      &flanger.rate,      1.0f, 0.0f },
+        { "Flanger",      "DEPTH",       FX_FLANGER,      &flanger.depth,     1.0f, 0.0f },
+        { "Flanger",      "FEEDBACK",    FX_FLANGER,      &flanger.feedback,  1.0f, 0.0f },
+        { "Flanger",      "MIX",         FX_FLANGER,      &flanger.mix,       1.0f, 0.0f },
         { "PitchShifter", "SEMITONES",   FX_PITCHSHIFTER, &pitch.semitones_a, 1.0f, 0.0f },
         { "PitchShifter", "SEMITONES_B", FX_PITCHSHIFTER, &pitch.semitones_b, 1.0f, 0.0f },
         { "PitchShifter", "MIX_A",       FX_PITCHSHIFTER, &pitch.mix_a,       1.0f, 0.0f },
         { "PitchShifter", "MIX_B",       FX_PITCHSHIFTER, &pitch.mix_b,       1.0f, 0.0f },
         { "PitchShifter", "MIX",         FX_PITCHSHIFTER, &pitch.mix,         1.0f, 0.0f },
-    
-        // Phaser — todo 0-1
-        { "Phaser",       "RATE",      FX_PHASER,       &phaser.rate,      1.0f,  0.0f },
-        { "Phaser",       "DEPTH",     FX_PHASER,       &phaser.depth,     1.0f,  0.0f },
-        { "Phaser",       "FEEDBACK",  FX_PHASER,       &phaser.feedback,  1.0f,  0.0f },
-        { "Phaser",       "MIX",       FX_PHASER,       &phaser.mix,       1.0f,  0.0f },
-
-        { "Reverb",       "FEEDBACK",  FX_REVERB,       &reverb.feedback,  1.0f, 0.0f },
-        { "Reverb",       "LPFREQ",    FX_REVERB,       &reverb.lpfreq,    1.0f, 0.0f },
-        { "Reverb",       "MIX",       FX_REVERB,       &reverb.mix,       1.0f, 0.0f },
+        { "Phaser",       "RATE",        FX_PHASER,       &phaser.rate,       1.0f, 0.0f },
+        { "Phaser",       "DEPTH",       FX_PHASER,       &phaser.depth,      1.0f, 0.0f },
+        { "Phaser",       "FEEDBACK",    FX_PHASER,       &phaser.feedback,   1.0f, 0.0f },
+        { "Phaser",       "MIX",         FX_PHASER,       &phaser.mix,        1.0f, 0.0f },
+        { "Reverb",       "FEEDBACK",    FX_REVERB,       &reverb.feedback,   1.0f, 0.0f },
+        { "Reverb",       "LPFREQ",      FX_REVERB,       &reverb.lpfreq,     1.0f, 0.0f },
+        { "Reverb",       "MIX",         FX_REVERB,       &reverb.mix,        1.0f, 0.0f },
     };
     int map_size = sizeof(map) / sizeof(map[0]);
 
-    // --- Inicializar fuente de audio segun SIM_MODE ---
+    // ── Input source init ─────────────────────────────────────────────────────
 #if SIM_MODE == 0
     uint16_t packet[SERIAL_PACKET_SAMPLES];
     int serial_fd = serial_open(SERIAL_PORT, SERIAL_BAUD);
     if (serial_fd < 0) {
-        fprintf(stderr, "No se pudo abrir el serial. Abortando.\n");
+        fprintf(stderr, "No se pudo abrir el serial.\n");
         return 1;
     }
     printf("[SIM_MODE 0] Leyendo desde ESP32 por serial\n");
@@ -222,75 +207,33 @@ int main()
     int sim_i = 0;
     printf("[SIM_MODE 1] Usando suma de senos a 440 Hz\n");
 
-#elif SIM_MODE == 2
-    SF_INFO sf_info = {0};
-    SNDFILE *sf = sf_open(WAV_FILE, SFM_READ, &sf_info);
-    if (!sf) {
-        fprintf(stderr, "No se pudo abrir %s: %s\n", WAV_FILE, sf_strerror(NULL));
-        return 1;
-    }
-    printf("[SIM_MODE 2] WAV: %s | %d Hz | %d canales | %lld frames\n",
-           WAV_FILE, sf_info.samplerate, sf_info.channels, (long long)sf_info.frames);
-
-    int   wav_frames = (int)sf_info.frames;
-    float *wav_data  = malloc(wav_frames * sf_info.channels * sizeof(float));
-    if (!wav_data) {
-        fprintf(stderr, "Sin memoria para cargar WAV\n");
-        sf_close(sf);
-        return 1;
-    }
-    sf_readf_float(sf, wav_data, wav_frames);
-    sf_close(sf);
-    int wav_pos = 0;
-    printf("[SIM_MODE 2] WAV cargado en memoria (%d frames)\n", wav_frames);
-    float wav_max = 0.0f;
-    for (int i = 0; i < wav_frames * sf_info.channels; i++) {
-        float abs_val = fabsf(wav_data[i]);
-        if (abs_val > wav_max) wav_max = abs_val;
-    }
-    if (wav_max > 1.0f) {
-        for (int i = 0; i < wav_frames * sf_info.channels; i++)
-            wav_data[i] /= wav_max;
-    }
-    printf("[SIM_MODE 2] Normalizacion: max=%.4f %s\n", 
-           wav_max, wav_max > 1.0f ? "(normalizado)" : "(ok)");
-
 #elif SIM_MODE == 3
-    // ── NI USB-6009 via named pipe ──────────────────────────────────────────
-    // The Python script ni6009_feeder.py writes packets in the same binary
-    // format as the ESP32: 4-byte sync word + PACKET_SAMPLES * uint16_t LE.
-    // We reuse serial_read_packet() which already handles sync + payload.
-    printf("[SIM_MODE 3] Waiting for ni6009_feeder.py on pipe %s ...\n", PIPE_PATH);
-    int pipe_fd = open(PIPE_PATH, O_RDONLY);   // blocks until Python opens write end
-    if (pipe_fd < 0) {
-        fprintf(stderr, "[SIM_MODE 3] Could not open pipe %s: %s\n",
-                PIPE_PATH, strerror(errno));
+    HANDLE pipe_handle = CreateFileA(
+        "\\\\.\\pipe\\ni6009", GENERIC_READ, 0, NULL,
+        OPEN_EXISTING, 0, NULL);
+    if (pipe_handle == INVALID_HANDLE_VALUE) {
+        fprintf(stderr, "[SIM_MODE 3] Could not open pipe: error %lu\n", GetLastError());
         return 1;
     }
-    printf("[SIM_MODE 3] Pipe open — streaming from NI USB-6009\n");
-    uint16_t packet3[SERIAL_PACKET_SAMPLES];   // reuse same packet buffer name
- 
+    printf("[SIM_MODE 3] Pipe open — streaming from NI feeder\n");
+    uint16_t packet3[SERIAL_PACKET_SAMPLES];
 #endif
 
-    // --- ALSA y socket ---
-    snd_pcm_t *pcm = alsa_init(SAMPLE_RATE);
+    // ── Audio + socket init ───────────────────────────────────────────────────
+    PaStream *pcm = alsa_init(SAMPLE_RATE);
     if (!pcm) return 1;
     socket_init();
 
-    float batch_pre[SERIAL_PACKET_SAMPLES];
-    float batch_post[SERIAL_PACKET_SAMPLES];
-    long  total_samples = 0;
-
-    // FIX #1: buffer acumulador para escribir ALSA_WRITE_BATCHES de golpe
+    float   batch_pre[SERIAL_PACKET_SAMPLES];
+    float   batch_post[SERIAL_PACKET_SAMPLES];
+    long    total_samples  = 0;
     int16_t alsa_accum[ALSA_PERIOD_FRAMES];
     int     alsa_accum_pos = 0;
 
-    // =========================================================================
-    // LOOP PRINCIPAL
-    // =========================================================================
+    // ── Main loop ─────────────────────────────────────────────────────────────
     while (1) {
 
-        // --- Recibir JSON desde la interfaz Python ---
+        // Receive JSON from Python GUI
         int n = socket_receive(json_buffer, sizeof(json_buffer) - 1);
         if (n > 0) {
             printf("JSON recibido:\n%s\n", json_buffer);
@@ -310,8 +253,9 @@ int main()
                 if (!type_end) break;
 
                 char effect_type[64] = {0};
-                int type_len = type_end - type_start;
-                if (type_len >= (int)sizeof(effect_type)) type_len = sizeof(effect_type) - 1;
+                int type_len = (int)(type_end - type_start);
+                if (type_len >= (int)sizeof(effect_type))
+                    type_len = (int)sizeof(effect_type) - 1;
                 strncpy(effect_type, type_start, type_len);
                 cursor = type_end + 1;
 
@@ -334,8 +278,9 @@ int main()
                 if (!params_close) continue;
 
                 char params_block[512] = {0};
-                int block_len = params_close - params_open + 1;
-                if (block_len >= (int)sizeof(params_block)) block_len = sizeof(params_block) - 1;
+                int block_len = (int)(params_close - params_open + 1);
+                if (block_len >= (int)sizeof(params_block))
+                    block_len = (int)sizeof(params_block) - 1;
                 strncpy(params_block, params_open, block_len);
 
                 printf("  [%s] enabled=%d\n", effect_type, fx_enabled);
@@ -353,8 +298,6 @@ int main()
                     snprintf(search_key, sizeof(search_key), "\"%s\"", map[m].param_key);
                     char *param_pos = strstr(params_block, search_key);
                     if (!param_pos) continue;
-
-                    if (!param_pos) continue;
                     char *colon = strchr(param_pos, ':');
                     if (!colon) continue;
                     float raw_value = 0.0f;
@@ -370,7 +313,7 @@ int main()
             memset(json_buffer, 0, sizeof(json_buffer));
         }
 
-        // --- Obtener batch de samples ---
+        // ── Read batch of samples ─────────────────────────────────────────────
 #if SIM_MODE == 0
         if (serial_read_packet(serial_fd, packet) < 0) {
             fprintf(stderr, "[serial] error leyendo paquete, reintentando...\n");
@@ -378,15 +321,6 @@ int main()
         }
         for (int s = 0; s < SERIAL_PACKET_SAMPLES; s++)
             batch_pre[s] = serial_adc_to_float(packet[s]);
-
-#elif SIM_MODE == 3
-    // serial_read_packet() works on any file descriptor, not just serial ports.
-    if (serial_read_packet(pipe_fd, packet3) < 0) {
-        fprintf(stderr, "[SIM_MODE 3] pipe read error or feeder closed\n");
-        break;   // exit the audio loop cleanly
-    }
-    for (int s = 0; s < SERIAL_PACKET_SAMPLES; s++)
-        batch_pre[s] = serial_adc_to_float(packet3[s]);
 
 #elif SIM_MODE == 1
         for (int s = 0; s < SERIAL_PACKET_SAMPLES; s++) {
@@ -399,60 +333,56 @@ int main()
             if (sim_i >= SAMPLE_RATE) sim_i = 0;
         }
 
-#elif SIM_MODE == 2
-        for (int s = 0; s < SERIAL_PACKET_SAMPLES; s++) {
-            float sample = wav_data[wav_pos * sf_info.channels]; 
-            batch_pre[s] = sample;
-            wav_pos++;
-            if (wav_pos >= wav_frames)
-                wav_pos = 0;  // loop
+#elif SIM_MODE == 3
+        if (win_read_packet(pipe_handle, packet3) < 0) {
+            fprintf(stderr, "[SIM_MODE 3] pipe read error or feeder closed\n");
+            break;
         }
+        for (int s = 0; s < SERIAL_PACKET_SAMPLES; s++)
+            batch_pre[s] = serial_adc_to_float(packet3[s]);
 #endif
 
-        // --- Cadena de efectos ---
+        // ── Effect chain ──────────────────────────────────────────────────────
         for (int s = 0; s < SERIAL_PACKET_SAMPLES; s++) {
             float sig = batch_pre[s];
             for (int k = 0; k < fx_order_count; k++)
                 sig = process_effect(fx_order[k], sig,
-                                     &od, &wah, &ch, &flanger, &pitch, &delay, &phaser, &reverb);
+                                     &od, &wah, &ch, &flanger,
+                                     &pitch, &delay, &phaser, &reverb);
             batch_post[s] = sig;
             total_samples++;
         }
 
-        // --- Salida por jack (acumular batches antes de escribir a ALSA) ---
+        // ── Write to audio output ─────────────────────────────────────────────
         for (int s = 0; s < SERIAL_PACKET_SAMPLES; s++) {
-            // FIX #4: clamp antes de convertir a int16 para evitar overflow
-            // que causa clicks cuando un efecto (reverb, overdrive) satura > 1.0f
             float clamped = batch_post[s];
             if (clamped >  1.0f) clamped =  1.0f;
             if (clamped < -1.0f) clamped = -1.0f;
             alsa_accum[alsa_accum_pos++] = (int16_t)(clamped * 32767.0f);
         }
-
-        // FIX #1: solo llamar writei cuando el acumulador está lleno
         if (alsa_accum_pos >= ALSA_PERIOD_FRAMES) {
             alsa_write_safe(pcm, alsa_accum, ALSA_PERIOD_FRAMES);
             alsa_accum_pos = 0;
         }
 
-        // --- Debug cada ~0.5s ---
+        // ── Debug print every ~0.5s ───────────────────────────────────────────
         if (total_samples % 22039 < SERIAL_PACKET_SAMPLES)
             printf("audio: input=%f out=%f  cadena=%d efectos\n",
                    batch_pre[0], batch_post[0], fx_order_count);
 
-        // --- Enviar al socket Python (no bloquea gracias al MSG_DONTWAIT en socket_server.c) ---
+        // ── Send to Python visualizer ─────────────────────────────────────────
         socket_send_batch(batch_pre, batch_post, SERIAL_PACKET_SAMPLES);
     }
 
-    // --- Cleanup ---
+    // ── Cleanup ───────────────────────────────────────────────────────────────
 #if SIM_MODE == 0
     serial_close(serial_fd);
-#elif SIM_MODE == 2
-    free(wav_data);
 #elif SIM_MODE == 3
-    close(pipe_fd);
+    CloseHandle(pipe_handle);
 #endif
-    snd_pcm_close(pcm);
+    Pa_StopStream(pcm);
+    Pa_CloseStream(pcm);
+    Pa_Terminate();
     socket_close();
     return 0;
 }
