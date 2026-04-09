@@ -86,7 +86,7 @@ def main():
         print("[feeder] ERROR: nidaqmx not installed. Run:  pip install nidaqmx")
         sys.exit(1)
 
-    signal.signal(signal.SIGINT,   signal_handler)
+    signal.signal(signal.SIGINT,  signal_handler)
     signal.signal(signal.SIGBREAK, signal_handler)
 
     # Voltage range depends on terminal config
@@ -105,7 +105,6 @@ def main():
     print(f"         packet size:   {PACKET_SAMPLES} samples")
 
     pipe_handle = open_pipe()
-
     try:
         with nidaqmx.Task() as task:
             task.ai_channels.add_ai_voltage_chan(
@@ -116,9 +115,12 @@ def main():
             )
             task.timing.cfg_samp_clk_timing(
                 rate=args.rate,
-                sample_mode=AcquisitionType.CONTINUOUS,
-                samps_per_chan_to_acquire=PACKET_SAMPLES * 4  # internal buffer
+                sample_mode=AcquisitionType.CONTINUOUS
             )
+            try:
+                task.in_stream.input_buf_size = PACKET_SAMPLES * 4
+            except Exception:
+                pass
             task.start()
             print("[feeder] DAQ task running — press Ctrl+C to stop\n")
 

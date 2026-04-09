@@ -8,6 +8,7 @@
 #define DELAYPOS_SHIFT 28
 #define DELAYPOS_SCALE 0x10000000
 #define DELAYPOS_MASK 0x0FFFFFFF
+#define PI 3.14159265359
 
 // ===================== PARAMS =====================
 static const float kReverbParams[8][4] = {
@@ -98,7 +99,7 @@ float Reverb_process(Reverb *rv, float input)
     if(core.lpfreq != core.prv_lpfreq)
     {
         core.prv_lpfreq = core.lpfreq;
-        damp = 2.0f - cosf(core.prv_lpfreq * 2.0f * M_PI / core.sample_rate);
+        damp = 2.0f - cosf(core.prv_lpfreq * 2.0f * PI / core.sample_rate);
         damp = damp - sqrtf(damp * damp - 1.0f);
         core.damp_fact = damp;
     }

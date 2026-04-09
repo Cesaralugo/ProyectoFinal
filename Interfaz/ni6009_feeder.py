@@ -115,9 +115,12 @@ def main():
             )
             task.timing.cfg_samp_clk_timing(
                 rate=args.rate,
-                sample_mode=AcquisitionType.CONTINUOUS,
-                samps_per_chan_to_acquire=PACKET_SAMPLES * 4  # internal buffer
+                sample_mode=AcquisitionType.CONTINUOUS
             )
+            try:
+                task.in_stream.input_buf_size = PACKET_SAMPLES * 4
+            except Exception:
+                pass
             task.start()
             print("[feeder] DAQ task running — press Ctrl+C to stop\n")
 

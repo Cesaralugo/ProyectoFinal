@@ -1,0 +1,14 @@
+{
+  "Preset 1": {
+    "name": "Preset1",
+    "effects": []
+  },
+  "Preset 2": {
+    "name": "Preset2",
+    "effects": []
+  },
+  "Preset 3": {
+    "name": "Preset3",
+    "effects": []
+  }
+}
