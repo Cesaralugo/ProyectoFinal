@@ -32,7 +32,7 @@ $(AUDIO_OUT): $(C_OBJ) $(CPP_OBJ)
 	$(CXX) -o $@ $^ -lm -lportaudio -lws2_32
 
 $(FEEDER_OUT): src/ni_feeder.c
-	$(CC) $(CFLAGS) -o $@ $< -L$(NIDAQMX_LIB) -lDAQmxBase -lws2_32
+	cl /I$(NIDAQMX_INCLUDE) /O2 /o $@ $< "$(NIDAQMX_LIB)\NIDAQmx.lib" ws2_32.lib2
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
