@@ -2,8 +2,8 @@ CC       = gcc
 CXX      = g++
 DAISY    = ../dependencies/DaisySP/Source
 
-# NI-DAQmx library path
-NIDAQMX_LIB = "C:\Program Files (x86)\National Instruments\NI-DAQ\DAQmx ANSI C Dev\lib\msvc"
+# NI-DAQmx library path (64-bit)
+NIDAQMX_LIB = "C:\Program Files (x86)\National Instruments\Shared\ExternalCompilerSupport\C\lib64\msvc"
 
 CFLAGS   = -Iinclude -I$(DAISY) -I$(DAISY)/Utility -I$(DAISY)/Control \
            -I$(DAISY)/Effects -Wall -O2
