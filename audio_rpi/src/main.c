@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <windows.h>
 #include <portaudio.h>
+#include <pa_win_wasapi.h>
 
 #include "../include/socket_server.h"
 #include "../include/serial_input.h"
@@ -19,7 +20,7 @@
 #include "../include/config.h"
 
 #define PI                 3.14159265358979323846f
-#define ALSA_WRITE_BATCHES 4
+#define ALSA_WRITE_BATCHES 1
 #define ALSA_PERIOD_FRAMES (SERIAL_PACKET_SAMPLES * ALSA_WRITE_BATCHES)
 
 #define SIM_MODE    3
@@ -27,8 +28,6 @@
 #define SERIAL_BAUD 460800
 
 // ── PortAudio (replaces ALSA) ─────────────────────────────────────────────────
-
-static PaStream *pa_stream = NULL;
 
 static PaStream *alsa_init(unsigned int sample_rate)
 {

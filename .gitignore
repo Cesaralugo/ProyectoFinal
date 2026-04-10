@@ -44,3 +44,5 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 audio_rpi/audio_engine.exe
+audio_rpi/src/main.o
+audio_rpi/src/socket_server.o
