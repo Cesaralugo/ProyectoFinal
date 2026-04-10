@@ -96,8 +96,55 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     
-    DAQmxStartTask(taskHandle);
-    printf("[C feeder] DAQ task running\n");
+    // Accumulator for partial packets
+    float64 *sample_buffer = (float64*)malloc(PACKET_SAMPLES * 4 * sizeof(float64));
+    int buffer_pos = 0;
+    int CHUNK_SIZE = 16;  // Read small chunks frequently
+    int total_packets = 0;
+    int32 samples_read;
+
+    while (1) {
+        // Read a small chunk (16 samples) instead of full packet
+        error = DAQmxReadAnalogF64(taskHandle, CHUNK_SIZE, 1.0,
+                                   DAQmx_Val_GroupByChannel, sample_buffer + buffer_pos,
+                                   CHUNK_SIZE, &samples_read, NULL);
+        
+        if (error != 0) {
+            DAQmxGetExtendedErrorInfo(errBuff, 2048);
+            printf("[C feeder] DAQmx error: %s\n", errBuff);
+            break;
+        }
+        
+        buffer_pos += samples_read;
+        
+        // Once we have a full packet, send it
+        if (buffer_pos >= PACKET_SAMPLES) {
+            // Convert to ADC codes
+            for (int i = 0; i < PACKET_SAMPLES; i++) {
+                packet.samples[i] = (uint16_t)volts_to_adc(sample_buffer[i], v_min, v_max);
+            }
+            
+            // Write to pipe
+            DWORD bytes_written;
+            if (!WriteFile(pipe_handle, &packet, sizeof(packet), &bytes_written, NULL)) {
+                printf("[C feeder] Pipe write error -- reader closed\n");
+                break;
+            }
+            
+            // Shift remaining samples
+            for (int i = 0; i < buffer_pos - PACKET_SAMPLES; i++) {
+                sample_buffer[i] = sample_buffer[PACKET_SAMPLES + i];
+            }
+            buffer_pos -= PACKET_SAMPLES;
+            
+            total_packets++;
+            if (total_packets % 344 == 0) {
+                printf("[C feeder] %d packets sent\n", total_packets);
+            }
+        }
+    }
+
+    free(sample_buffer);    printf("[C feeder] DAQ task running\n");
     
     // Set sync word
     packet.sync[0] = 0xAA;
