@@ -3,7 +3,7 @@ CXX      = g++
 DAISY    = ../dependencies/DaisySP/Source
 
 # NI-DAQmx paths (adjust if installed in different location)
-NIDAQMX_PATH = C:\Program Files\National Instruments\NI-DAQmx
+NIDAQMX_PATH = "C:\Program Files (x86)\National Instruments\NI-DAQ\DAQmx ANSI C Dev"
 NIDAQMX_INCLUDE = $(NIDAQMX_PATH)\include
 NIDAQMX_LIB = $(NIDAQMX_PATH)\lib\msvc
 
