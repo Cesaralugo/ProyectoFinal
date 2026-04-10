@@ -119,9 +119,9 @@ def main():
                 sample_mode=AcquisitionType.CONTINUOUS
             )
             
-            # Very large buffer to prevent overflow
+            # CRITICAL: Set read position to newest samples (skip old ones if buffer fills)
             try:
-                task.in_stream.input_buf_size = 65536
+                task.in_stream.read_relative_to = nidaqmx.constants.ReadRelativeTo.NEWEST_SAMPLE
             except:
                 pass
             
@@ -130,17 +130,16 @@ def main():
 
             total_packets = 0
             t0 = time.time()
-            
-            # Accumulator for partial packets
             sample_buffer = []
-            CHUNK_SIZE = 32  # Read small chunks frequently
+            CHUNK_SIZE = 16  # Smaller chunks, read more frequently
+            skipped_packets = 0
 
             while running:
                 try:
-                    # Read a small chunk (32 samples) with short timeout
+                    # Read a tiny chunk with minimal timeout
                     chunk = task.read(
                         number_of_samples_per_channel=CHUNK_SIZE,
-                        timeout=1.0
+                        timeout=0.5  # Very short timeout
                     )
                     sample_buffer.extend(chunk)
                     
@@ -159,16 +158,22 @@ def main():
                             break
                         
                         total_packets += 1
-                        if total_packets % 172 == 0:   # ~1 s at 44100/128
+                        if total_packets % 344 == 0:   # ~1 s at 44100/128
                             elapsed = time.time() - t0
                             pps = total_packets / elapsed
                             print(f"[feeder] {total_packets} packets | {pps:.1f} pkt/s | "
-                                  f"last sample: {samples[-1]:.4f} V")
+                                  f"last sample: {samples[-1]:.4f} V | skipped: {skipped_packets}")
                 
+                except nidaqmx.errors.DaqReadError as read_err:
+                    # Buffer overflow - skip ahead
+                    skipped_packets += 1
+                    if skipped_packets % 10 == 0:
+                        print(f"[feeder] WARNING: {skipped_packets} buffer overflows")
+                    # Just continue - we'll get the next chunk
+                    time.sleep(0.001)
                 except Exception as e:
-                    print(f"[feeder] read error: {type(e).__name__}: {e}")
-                    time.sleep(0.01)
-                    continue
+                    print(f"[feeder] Fatal error: {type(e).__name__}: {e}")
+                    break
 
     except nidaqmx.errors.DaqError as e:
         print(f"[feeder] DAQmx fatal error: {e}")
