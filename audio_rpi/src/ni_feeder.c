@@ -29,7 +29,6 @@ int main(int argc, char *argv[]) {
     HANDLE pipe_handle;
     int32 error = 0;
     char errBuff[2048] = {0};
-    float64 *read_buffer = NULL;
     Packet packet;
     
     // Parse arguments
@@ -85,16 +84,16 @@ int main(int argc, char *argv[]) {
                               v_min, v_max, DAQmx_Val_Volts, NULL);
     
     DAQmxCfgSampClkTiming(taskHandle, "", SAMPLE_RATE, DAQmx_Val_Rising,
-                          DAQmx_Val_ContSamps, PACKET_SAMPLES * 16);
+                          DAQmx_Val_ContSamps, PACKET_SAMPLES * 128);
     
-    // Allocate read buffer
-    read_buffer = (float64*)malloc(PACKET_SAMPLES * sizeof(float64));
-    if (!read_buffer) {
-        printf("[C feeder] ERROR: Could not allocate buffer\n");
-        DAQmxClearTask(taskHandle);
-        CloseHandle(pipe_handle);
-        return 1;
-    }
+    DAQmxStartTask(taskHandle);
+    printf("[C feeder] DAQ task running\n");
+    
+    // Set sync word
+    packet.sync[0] = 0xAA;
+    packet.sync[1] = 0x55;
+    packet.sync[2] = 0xFF;
+    packet.sync[3] = 0x00;
     
     // Accumulator for partial packets
     float64 *sample_buffer = (float64*)malloc(PACKET_SAMPLES * 4 * sizeof(float64));
@@ -121,7 +120,7 @@ int main(int argc, char *argv[]) {
         if (buffer_pos >= PACKET_SAMPLES) {
             // Convert to ADC codes
             for (int i = 0; i < PACKET_SAMPLES; i++) {
-                packet.samples[i] = (uint16_t)volts_to_adc(sample_buffer[i], v_min, v_max);
+                packet.samples[i] = volts_to_adc(sample_buffer[i], v_min, v_max);
             }
             
             // Write to pipe
@@ -143,52 +142,12 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-
-    free(sample_buffer);    printf("[C feeder] DAQ task running\n");
-    
-    // Set sync word
-    packet.sync[0] = 0xAA;
-    packet.sync[1] = 0x55;
-    packet.sync[2] = 0xFF;
-    packet.sync[3] = 0x00;
-    
-    int total_packets = 0;
-    int32 samples_read;
-    
-    while (1) {
-        error = DAQmxReadAnalogF64(taskHandle, PACKET_SAMPLES, 10.0,
-                                   DAQmx_Val_GroupByChannel, read_buffer,
-                                   PACKET_SAMPLES, &samples_read, NULL);
-        
-        if (error != 0) {
-            DAQmxGetExtendedErrorInfo(errBuff, 2048);
-            printf("[C feeder] DAQmx error: %s\n", errBuff);
-            break;
-        }
-        
-        // Convert to ADC codes
-        for (int i = 0; i < PACKET_SAMPLES; i++) {
-            packet.samples[i] = volts_to_adc(read_buffer[i], v_min, v_max);
-        }
-        
-        // Write to pipe
-        DWORD bytes_written;
-        if (!WriteFile(pipe_handle, &packet, sizeof(packet), &bytes_written, NULL)) {
-            printf("[C feeder] Pipe write error -- reader closed\n");
-            break;
-        }
-        
-        total_packets++;
-        if (total_packets % 344 == 0) {
-            printf("[C feeder] %d packets sent\n", total_packets);
-        }
-    }
     
     // Cleanup
     DAQmxStopTask(taskHandle);
     DAQmxClearTask(taskHandle);
     CloseHandle(pipe_handle);
-    free(read_buffer);
+    free(sample_buffer);
     printf("[C feeder] done\n");
     
     return 0;
