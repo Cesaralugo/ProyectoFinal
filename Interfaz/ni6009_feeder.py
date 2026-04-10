@@ -119,14 +119,9 @@ def main():
                 sample_mode=AcquisitionType.CONTINUOUS
             )
             
-            # Maximum safe buffer for stability
+            # Very large buffer to prevent overflow
             try:
-                task.in_stream.input_buf_size = min(PACKET_SAMPLES * 64, 262144)
-            except:
-                pass
-            
-            try:
-                task.in_stream.read_all_avail_samp = False
+                task.in_stream.input_buf_size = 65536
             except:
                 pass
             
@@ -135,40 +130,48 @@ def main():
 
             total_packets = 0
             t0 = time.time()
-            consecutive_errors = 0
+            
+            # Accumulator for partial packets
+            sample_buffer = []
+            CHUNK_SIZE = 32  # Read small chunks frequently
 
             while running:
                 try:
-                    samples = task.read(
-                        number_of_samples_per_channel=PACKET_SAMPLES,
-                        timeout=10.0
+                    # Read a small chunk (32 samples) with short timeout
+                    chunk = task.read(
+                        number_of_samples_per_channel=CHUNK_SIZE,
+                        timeout=1.0
                     )
-                    consecutive_errors = 0
+                    sample_buffer.extend(chunk)
+                    
+                    # Once we have a full packet, send it
+                    if len(sample_buffer) >= PACKET_SAMPLES:
+                        samples = sample_buffer[:PACKET_SAMPLES]
+                        sample_buffer = sample_buffer[PACKET_SAMPLES:]
+                        
+                        packet = build_packet(samples, v_min, v_max)
+                        
+                        try:
+                            win32file.WriteFile(pipe_handle, packet)
+                        except pywintypes.error:
+                            print("[feeder] pipe reader closed — exiting")
+                            running = False
+                            break
+                        
+                        total_packets += 1
+                        if total_packets % 172 == 0:   # ~1 s at 44100/128
+                            elapsed = time.time() - t0
+                            pps = total_packets / elapsed
+                            print(f"[feeder] {total_packets} packets | {pps:.1f} pkt/s | "
+                                  f"last sample: {samples[-1]:.4f} V")
+                
                 except Exception as e:
-                    consecutive_errors += 1
-                    print(f"[feeder] read error #{consecutive_errors}: {type(e).__name__}")
-                    if consecutive_errors >= 3:
-                        print("[feeder] too many errors, stopping")
-                        break
+                    print(f"[feeder] read error: {type(e).__name__}: {e}")
                     time.sleep(0.01)
                     continue
 
-                packet = build_packet(samples, v_min, v_max)
-
-                try:
-                    win32file.WriteFile(pipe_handle, packet)
-                except pywintypes.error:
-                    print("[feeder] pipe reader closed — exiting")
-                    break
-
-                total_packets += 1
-                if total_packets % 172 == 0:   # ~1 s at 44100/256
-                    elapsed = time.time() - t0
-                    pps = total_packets / elapsed
-                    print(f"[feeder] {total_packets} packets | {pps:.1f} pkt/s | "
-                          f"last sample: {samples[-1]:.4f} V")
     except nidaqmx.errors.DaqError as e:
-        print(f"[feeder] DAQmx error: {e}")
+        print(f"[feeder] DAQmx fatal error: {e}")
     finally:
         win32file.CloseHandle(pipe_handle)
         print("[feeder] done")
