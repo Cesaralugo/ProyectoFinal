@@ -2,12 +2,17 @@ CC       = gcc
 CXX      = g++
 DAISY    = ../dependencies/DaisySP/Source
 
+# NI-DAQmx paths (adjust if installed in different location)
+NIDAQMX_PATH = C:\Program Files\National Instruments\NI-DAQmx
+NIDAQMX_INCLUDE = $(NIDAQMX_PATH)\include
+NIDAQMX_LIB = $(NIDAQMX_PATH)\lib\msvc
+
 CFLAGS   = -Iinclude -I$(DAISY) -I$(DAISY)/Utility -I$(DAISY)/Control \
-           -I$(DAISY)/Effects -Wall -O2
+           -I$(DAISY)/Effects -I$(NIDAQMX_INCLUDE) -Wall -O2
 
 CXXFLAGS = $(CFLAGS) -std=c++14
 
-C_SRC    = $(filter-out src/chorus.c src/pitch_shifter.c src/overdrive.c, \
+C_SRC    = $(filter-out src/chorus.c src/pitch_shifter.c src/overdrive.c src/ni_feeder.c, \
              $(wildcard src/*.c))
 
 CPP_SRC  = src/chorus.cpp src/pitch_shifter.cpp src/overdrive.cpp \
@@ -18,10 +23,16 @@ CPP_SRC  = src/chorus.cpp src/pitch_shifter.cpp src/overdrive.cpp \
 C_OBJ    = $(C_SRC:.c=.o)
 CPP_OBJ  = $(CPP_SRC:.cpp=.o)
 
-OUT      = audio_engine.exe
+AUDIO_OUT = audio_engine.exe
+FEEDER_OUT = ni_feeder.exe
 
-all: $(C_OBJ) $(CPP_OBJ)
-	$(CXX) -o $(OUT) $^ -lm -lportaudio -lws2_32
+all: $(AUDIO_OUT) $(FEEDER_OUT)
+
+$(AUDIO_OUT): $(C_OBJ) $(CPP_OBJ)
+	$(CXX) -o $@ $^ -lm -lportaudio -lws2_32
+
+$(FEEDER_OUT): src/ni_feeder.c
+	$(CC) $(CFLAGS) -o $@ $< -L$(NIDAQMX_LIB) -lDAQmxBase -lws2_32
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -30,4 +41,6 @@ all: $(C_OBJ) $(CPP_OBJ)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	del /Q $(OUT) src\*.o 2>NUL || true
+	del /Q $(AUDIO_OUT) $(FEEDER_OUT) src\*.o 2>NUL || true
+
+.PHONY: all clean

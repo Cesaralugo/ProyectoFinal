@@ -19,18 +19,15 @@ taskkill /F /IM audio_engine.exe 2>NUL
 taskkill /F /IM python.exe 2>NUL
 timeout /t 1 >NUL
 
-:: Start NI feeder (creates the named pipe and waits for C to connect)
-echo [1/3] Starting NI feeder...
-cd "%PROJECT_DIR%Interfaz"
-call venv\Scripts\activate.bat
-start "NI Feeder" python ni6009_feeder.py --device %NI_DEVICE% --channel %NI_CHANNEL% --mode %NI_MODE%
+:: Start C NI feeder (much more reliable than Python)
+echo [1/3] Starting C NI feeder...
+cd "%PROJECT_DIR%audio_rpi"
+start "C NI Feeder" ni_feeder.exe --device %NI_DEVICE% --channel %NI_CHANNEL% --mode %NI_MODE%
 
-:: Wait for feeder to create and connect the pipe
 timeout /t 2 >NUL
 
-:: Start audio engine (connects to named pipe, then opens TCP server)
+:: Start audio engine
 echo [2/3] Starting audio engine...
-cd "%PROJECT_DIR%audio_rpi"
 start "Audio Engine" audio_engine.exe
 
 :: Wait for TCP socket to be ready
