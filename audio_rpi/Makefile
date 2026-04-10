@@ -2,13 +2,8 @@ CC       = gcc
 CXX      = g++
 DAISY    = ../dependencies/DaisySP/Source
 
-# NI-DAQmx paths (adjust if installed in different location)
-NIDAQMX_PATH = C:\Program Files\National Instruments\NI-DAQmx
-NIDAQMX_INCLUDE = $(NIDAQMX_PATH)\include
-NIDAQMX_LIB = $(NIDAQMX_PATH)\lib\msvc
-
 CFLAGS   = -Iinclude -I$(DAISY) -I$(DAISY)/Utility -I$(DAISY)/Control \
-           -I$(DAISY)/Effects -I$(NIDAQMX_INCLUDE) -Wall -O2
+           -I$(DAISY)/Effects -Wall -O2
 
 CXXFLAGS = $(CFLAGS) -std=c++14
 
@@ -32,7 +27,7 @@ $(AUDIO_OUT): $(C_OBJ) $(CPP_OBJ)
 	$(CXX) -o $@ $^ -lm -lportaudio -lws2_32
 
 $(FEEDER_OUT): src/ni_feeder.c
-	$(CC) $(CFLAGS) -o $@ $< -L$(NIDAQMX_LIB) -lDAQmxBase -lws2_32
+	$(CC) $(CFLAGS) -o $@ $< -lDAQmxBase -lws2_32
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
