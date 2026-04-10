@@ -27,11 +27,21 @@ int socket_init() {
     addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     addr.sin_port        = htons(TCP_PORT);
 
-    bind(server_fd, (struct sockaddr*)&addr, sizeof(addr));
-    listen(server_fd, 1);
+    if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
+        printf("[socket] ERROR: bind failed\n");
+        return -1;
+    }
+    if (listen(server_fd, 1) != 0) {
+        printf("[socket] ERROR: listen failed\n");
+        return -1;
+    }
 
     printf("Waiting for Python client on TCP port %d...\n", TCP_PORT);
     client_fd = accept(server_fd, NULL, NULL);
+    if (client_fd == INVALID_SOCKET) {
+        printf("[socket] ERROR: accept failed\n");
+        return -1;
+    }
     printf("Client connected\n");
 
     // Non-blocking so send() never stalls the audio thread

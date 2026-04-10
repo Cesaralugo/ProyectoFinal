@@ -208,14 +208,20 @@ int main(void)
     printf("[SIM_MODE 1] Usando suma de senos a 440 Hz\n");
 
 #elif SIM_MODE == 3
+    printf("[SIM_MODE 3] Attempting to open pipe...\n");
     HANDLE pipe_handle = CreateFileA(
-        "\\\\.\\pipe\\ni6009", FILE_GENERIC_READ, 0, NULL,
-        OPEN_EXISTING, FILE_FLAG_NO_BUFFERING, NULL);
+        "\\\\.\\pipe\\ni6009", GENERIC_READ, 0, NULL,
+        OPEN_EXISTING, 0, NULL);
     if (pipe_handle == INVALID_HANDLE_VALUE) {
-        fprintf(stderr, "[SIM_MODE 3] Could not open pipe: error %lu\n", GetLastError());
+        DWORD err = GetLastError();
+        fprintf(stderr, "[SIM_MODE 3] ERROR: Could not open pipe. Error code: %lu\n", err);
+        fprintf(stderr, "  Check that:\n");
+        fprintf(stderr, "  1. NI feeder (Python) is running\n");
+        fprintf(stderr, "  2. The pipe '\\\\.\\\pipe\\ni6009' exists\n");
+        fprintf(stderr, "  3. Python feeder has successfully connected\n");
         return 1;
     }
-    printf("[SIM_MODE 3] Pipe open — streaming from NI feeder\n");
+    printf("[SIM_MODE 3] Pipe opened successfully — streaming from NI feeder\n");
     uint16_t packet3[SERIAL_PACKET_SAMPLES];
 #endif
 

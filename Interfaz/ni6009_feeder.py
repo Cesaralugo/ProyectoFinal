@@ -28,7 +28,7 @@ import win32pipe
 import win32file
 import pywintypes
 
-PACKET_SAMPLES = 128
+PACKET_SAMPLES = 256
 SYNC_WORD = bytes([0xAA, 0x55, 0xFF, 0x00])
 PIPE_NAME = r"\\.\pipe\ni6009"
 
@@ -117,10 +117,11 @@ def main():
                 rate=args.rate,
                 sample_mode=AcquisitionType.CONTINUOUS
             )
-            try:
-                task.in_stream.input_buf_size = PACKET_SAMPLES * 4
-            except Exception:
-                pass
+            
+            # CRITICAL: Increase buffer size and configure read behavior
+            task.in_stream.input_buf_size = PACKET_SAMPLES * 16  # Increase from *4 to *16
+            task.in_stream.read_all_avail_samp = False  # Don't read all available, read exactly what we ask
+            
             task.start()
             print("[feeder] DAQ task running — press Ctrl+C to stop\n")
 
@@ -128,11 +129,15 @@ def main():
             t0 = time.time()
 
             while running:
-                # Read exactly PACKET_SAMPLES; timeout=10s (should never fire at 44100 Hz)
-                samples = task.read(
-                    number_of_samples_per_channel=PACKET_SAMPLES,
-                    timeout=10.0
-                )
+                # Read exactly PACKET_SAMPLES with timeout=5s
+                try:
+                    samples = task.read(
+                        number_of_samples_per_channel=PACKET_SAMPLES,
+                        timeout=5.0
+                    )
+                except Exception as e:
+                    print(f"[feeder] read timeout or error: {e}")
+                    break
 
                 packet = build_packet(samples, v_min, v_max)
 
@@ -148,7 +153,6 @@ def main():
                     pps = total_packets / elapsed
                     print(f"[feeder] {total_packets} packets | {pps:.1f} pkt/s | "
                           f"last sample: {samples[-1]:.4f} V")
-
     except nidaqmx.errors.DaqError as e:
         print(f"[feeder] DAQmx error: {e}")
     finally:

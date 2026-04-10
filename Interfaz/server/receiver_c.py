@@ -46,14 +46,16 @@ class SocketReceiver(QObject):
             while self.running:
                 raw = recv_exact(self.client, BATCH_BYTES)
                 if raw is None:
-                    time.sleep(0.05)
-                    continue
+                    print("[receiver] No data received, connection may have closed")
+                    break
                 floats     = struct.unpack(f'<{BATCH_SIZE * 2}f', raw)
                 pre_batch  = floats[0::2]
                 post_batch = floats[1::2]
                 self.batch_received.emit(list(pre_batch), list(post_batch))
                 self.pre_received.emit(pre_batch[0])
                 self.post_received.emit(post_batch[0])
+        except Exception as e:
+            print(f"[receiver] Exception: {e}")
         finally:
             self.client.close()
 
