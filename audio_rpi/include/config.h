@@ -8,4 +8,6 @@
 #define MASTER_GAIN_MAX     4.0f
 #define MASTER_GAIN_DEFAULT 1.0f
 
+#define PORTAUDIO_LATENCY_MS 10  // Target latency in ms (WASAPI exclusive mode)
+
 #endif
