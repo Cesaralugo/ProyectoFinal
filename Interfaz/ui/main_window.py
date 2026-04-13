@@ -27,8 +27,8 @@ class MainWindow(QWidget):
         self.receiver.batch_received.connect(self.update_buffers_batch)
         self.receiver.start()
 
-        self.pre_buffer = deque(maxlen=16384)
-        self.signal_buffer = deque(maxlen=16384)
+        self.pre_buffer = deque(maxlen=2048)
+        self.signal_buffer = deque(maxlen=2048)
 
         self.t = 0
         
@@ -179,7 +179,7 @@ class MainWindow(QWidget):
                 
         self.timer = QTimer()
         self.timer.timeout.connect(self.sim_signal)
-        self.timer.start(100) #Elegir velocidad en la que se generan los puntos
+        self.timer.start(30) #Elegir velocidad en la que se generan los puntos
 
         self.server = TcpServer()
         self.server.json_received.connect(self.handle_remote_json)
@@ -429,7 +429,7 @@ class MainWindow(QWidget):
 
         if not self.show_fft:
             # TIME VIEW - Customizable X-axis range
-            DISPLAY_SAMPLES = 1024
+            DISPLAY_SAMPLES = 512
             pre_display  = pre_data[-DISPLAY_SAMPLES:] if len(pre_data) > DISPLAY_SAMPLES else pre_data
             post_display = post_data[-DISPLAY_SAMPLES:] if len(post_data) > DISPLAY_SAMPLES else post_data
 
