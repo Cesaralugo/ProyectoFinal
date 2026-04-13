@@ -34,20 +34,63 @@ static PaStream *alsa_init(unsigned int sample_rate)
     Pa_Initialize();
     PaStreamParameters out;
     memset(&out, 0, sizeof(out));
-    out.device                    = Pa_GetDefaultOutputDevice();
-    out.channelCount              = 1;
-    out.sampleFormat              = paInt16;
-    out.suggestedLatency          = Pa_GetDeviceInfo(out.device)->defaultLowOutputLatency;
-    out.hostApiSpecificStreamInfo = NULL;
+    out.device       = Pa_GetDefaultOutputDevice();
+    out.channelCount = 1;
+    out.sampleFormat = paInt16;
 
     PaStream *stream;
-    PaError err = Pa_OpenStream(&stream, NULL, &out,
-                                sample_rate, ALSA_PERIOD_FRAMES,
-                                paClipOff, NULL, NULL);
-    if (err != paNoError) {
-        fprintf(stderr, "PortAudio error: %s\n", Pa_GetErrorText(err));
-        return NULL;
+    PaError   err;
+
+    // Use WASAPI exclusive mode only when the default device is on the WASAPI host API
+    PaHostApiIndex wasapi_idx = Pa_HostApiTypeIdToHostApiIndex(paWASAPI);
+    const PaDeviceInfo *dev_info = (out.device != paNoDevice)
+                                   ? Pa_GetDeviceInfo(out.device)
+                                   : NULL;
+    int use_wasapi = (wasapi_idx >= 0) && (dev_info != NULL) &&
+                     (dev_info->hostApi == wasapi_idx);
+
+    if (use_wasapi) {
+        // WASAPI exclusive mode for minimum latency (bypasses Windows audio mixing)
+        PaWasapiStreamInfo wasapi_info;
+        memset(&wasapi_info, 0, sizeof(wasapi_info));
+        wasapi_info.size           = sizeof(PaWasapiStreamInfo);
+        wasapi_info.hostApiType    = paWASAPI;
+        wasapi_info.version        = 1;
+        wasapi_info.flags          = paWinWasapiExclusive;
+        wasapi_info.threadPriority = eThreadPriorityProAudio;
+
+        out.suggestedLatency          = PORTAUDIO_LATENCY_MS * 0.001f;
+        out.hostApiSpecificStreamInfo = (void *)&wasapi_info;
+
+        err = Pa_OpenStream(&stream, NULL, &out,
+                            sample_rate, ALSA_PERIOD_FRAMES,
+                            paClipOff, NULL, NULL);
+        if (err != paNoError) {
+            fprintf(stderr, "[pa] WASAPI exclusive mode failed (%s) — falling back to shared mode\n",
+                    Pa_GetErrorText(err));
+            use_wasapi = 0;
+        } else {
+            printf("[pa] WASAPI exclusive mode active — target latency: %d ms\n",
+                   PORTAUDIO_LATENCY_MS);
+        }
     }
+
+    if (!use_wasapi) {
+        // Fallback: shared mode with driver's default low latency
+        out.suggestedLatency          = (dev_info != NULL)
+                                        ? dev_info->defaultLowOutputLatency
+                                        : 0.1;
+        out.hostApiSpecificStreamInfo = NULL;
+        err = Pa_OpenStream(&stream, NULL, &out,
+                            sample_rate, ALSA_PERIOD_FRAMES,
+                            paClipOff, NULL, NULL);
+        if (err != paNoError) {
+            fprintf(stderr, "PortAudio error: %s\n", Pa_GetErrorText(err));
+            return NULL;
+        }
+        printf("[pa] Shared mode active (fallback)\n");
+    }
+
     Pa_StartStream(stream);
     printf("PortAudio ready at %u Hz | period=%d frames\n",
            sample_rate, ALSA_PERIOD_FRAMES);
