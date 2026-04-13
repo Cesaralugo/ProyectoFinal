@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 import pyqtgraph as pg
+pg.setConfigOptions(exitCleanup=False)
 import json
 import os
 import math
@@ -554,3 +555,11 @@ class MainWindow(QWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.bypass_label.move(self.plot_post.width() - self.bypass_label.width() - 10, 10)
+
+    def closeEvent(self, event):
+        self.timer.stop()
+        self.server.running = False
+        self.server.quit()
+        self.server.wait(2000)
+        self.receiver.stop()
+        super().closeEvent(event)
