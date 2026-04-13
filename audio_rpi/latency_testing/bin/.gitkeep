@@ -1,0 +1,2 @@
+# Build output directory — populated by `make`.
+# Listed in .gitignore so executables are not committed.
