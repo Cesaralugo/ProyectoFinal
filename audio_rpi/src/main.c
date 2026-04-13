@@ -399,7 +399,7 @@ int main(void)
                    batch_pre[0], batch_post[0], fx_order_count);
 
         // ── Send to Python visualizer ─────────────────────────────────────────
-        socket_send_batch(batch_pre, batch_post, SERIAL_PACKET_SAMPLES);
+        socket_send_batch_decimated(batch_pre, batch_post, SERIAL_PACKET_SAMPLES, SAMPLE_DECIMATION);
     }
 
     // ── Cleanup ───────────────────────────────────────────────────────────────

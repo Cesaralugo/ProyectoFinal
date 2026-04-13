@@ -6,9 +6,10 @@ import time
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import PACKET_SAMPLES, TCP_HOST, TCP_PORT
+from config import PACKET_SAMPLES, TCP_HOST, TCP_PORT, SAMPLE_DECIMATION
 
 BATCH_SIZE = PACKET_SAMPLES
+DECIMATED_SIZE = (PACKET_SAMPLES + SAMPLE_DECIMATION - 1) // SAMPLE_DECIMATION
 
 class SocketReceiver(QObject):
     batch_received = pyqtSignal(list, list)
@@ -33,7 +34,7 @@ class SocketReceiver(QObject):
             except ConnectionRefusedError:
                 time.sleep(0.1)
 
-        BATCH_BYTES = BATCH_SIZE * 2 * 4
+        BATCH_BYTES = DECIMATED_SIZE * 2 * 4
 
         def recv_exact(sock, n):
             data = b''
@@ -50,7 +51,7 @@ class SocketReceiver(QObject):
                 if raw is None:
                     print("[receiver] No data received, connection may have closed")
                     break
-                floats     = struct.unpack(f'<{BATCH_SIZE * 2}f', raw)
+                floats     = struct.unpack(f'<{DECIMATED_SIZE * 2}f', raw)
                 pre_batch  = floats[0::2]
                 post_batch = floats[1::2]
                 self.batch_received.emit(list(pre_batch), list(post_batch))

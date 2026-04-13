@@ -83,6 +83,36 @@ int socket_send_batch(const float *pre, const float *post, int n) {
     return sent;
 }
 
+int socket_send_batch_decimated(const float *pre, const float *post, int n, int decimation) {
+    if (decimation <= 1)
+        return socket_send_batch(pre, post, n);
+
+    /* Ceiling division: every idx = i*decimation is guaranteed < n */
+    int decimated_count = (n + decimation - 1) / decimation;
+    float *buf = (float*)malloc(decimated_count * 2 * sizeof(float));
+    if (!buf) {
+        printf("[socket] ERROR: malloc failed in socket_send_batch_decimated\n");
+        return -1;
+    }
+
+    for (int i = 0; i < decimated_count; i++) {
+        int idx = i * decimation;
+        buf[i*2]   = pre[idx];
+        buf[i*2+1] = post[idx];
+    }
+
+    int total = decimated_count * 2 * sizeof(float);
+    int sent  = send(client_fd, (char*)buf, total, 0);
+    free(buf);
+
+    if (sent == SOCKET_ERROR) {
+        int err = WSAGetLastError();
+        if (err == WSAECONNRESET || err == WSAENOTCONN)
+            client_fd = INVALID_SOCKET;
+    }
+    return sent;
+}
+
 void socket_close() {
     if (client_fd != INVALID_SOCKET) closesocket(client_fd);
     if (server_fd != INVALID_SOCKET) closesocket(server_fd);
