@@ -56,8 +56,8 @@ static PaStream *alsa_init(unsigned int sample_rate)
         wasapi_info.size           = sizeof(PaWasapiStreamInfo);
         wasapi_info.hostApiType    = paWASAPI;
         wasapi_info.version        = 1;
-        wasapi_info.flags          = paWasapiExclusive;
-        wasapi_info.threadPriority = eThreadPriorityRealtime;
+        wasapi_info.flags          = paWinWasapiExclusive;
+        wasapi_info.threadPriority = eThreadPriorityProAudio;
 
         out.suggestedLatency          = PORTAUDIO_LATENCY_MS * 0.001f;
         out.hostApiSpecificStreamInfo = (void *)&wasapi_info;
