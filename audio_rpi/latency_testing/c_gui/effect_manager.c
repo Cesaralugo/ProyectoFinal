@@ -16,7 +16,8 @@ const char *eff_names[EFF_COUNT] = {
     "flanger",
     "pitch_shifter",
     "phaser",
-    "reverb"
+    "reverb",
+    "distortion"
 };
 
 /* ── Initialise ─────────────────────────────────────────────────────────── */
