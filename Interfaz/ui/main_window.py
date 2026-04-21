@@ -94,9 +94,9 @@ class MainWindow(QWidget):
         self.left_layout.addWidget(self.effects_list)
 
         # ── Master Gain slider ────────────────────────────────────────────────
-        gain_header = QLabel("Master Gain")
-        gain_header.setStyleSheet("font-weight: bold; font-size: 11pt;")
-        self.left_layout.addWidget(gain_header)
+        self.gain_header = QLabel("Master Gain")
+        self.gain_header.setStyleSheet("font-weight: bold; font-size: 11pt;")
+        self.left_layout.addWidget(self.gain_header)
 
         self.gain_label = QLabel()
         self.left_layout.addWidget(self.gain_label)
@@ -207,6 +207,19 @@ class MainWindow(QWidget):
         self.server = TcpServer()
         self.server.json_received.connect(self.handle_remote_json)
         self.server.start()
+
+        self._hideable_widgets = [
+            self.title_label,
+            self.preset_dropdown,
+            self.add_effect_box,
+            self.effects_list,
+            self.gain_header,
+            self.gain_label,
+            self.gain_slider,
+            self.plot_pre,
+            self.plot_post,
+            self.toggle_fft_btn,
+        ]
 
     def update_buffers_batch(self, pre_batch, post_batch):
         self.pre_buffer.extend(pre_batch)
@@ -576,15 +589,26 @@ class MainWindow(QWidget):
 
     def _toggle_pause_click(self, event):
             self.paused = not self.paused
-            FIXED_WIDTH = 90  
+            FIXED_WIDTH = 90
             if self.paused:
+                # Reparent pause_label to the main window so it remains visible
+                # while all other widgets are hidden.
+                self.pause_label.setParent(self)
+                self.pause_label.move(10, 10)
+                self.pause_label.show()
+                self.pause_label.raise_()
+                # Hide all GUI elements
+                for w in self._hideable_widgets:
+                    w.hide()
+                # Stop timer to eliminate rendering overhead
+                # (audio processing in C and socket/TCP server continue running)
                 self.timer.stop()
-                self.pause_label.setText("STOPPED")
+                self.pause_label.setText("HIDDEN")
                 self.pause_label.setStyleSheet("""
                     QLabel {
-                        color: #ffaa00;
-                        background-color: rgba(60,40,0,200);
-                        border: 1px solid #ffaa00;
+                        color: #aaaaaa;
+                        background-color: rgba(0,0,0,180);
+                        border: 1px solid #555;
                         border-radius: 4px;
                         padding: 3px 8px;
                         font-size: 11px;
@@ -592,8 +616,17 @@ class MainWindow(QWidget):
                     }
                 """)
             else:
+                # Show all GUI elements
+                for w in self._hideable_widgets:
+                    w.show()
+                # Reparent pause_label back to the pre-effect plot overlay
+                self.pause_label.setParent(self.plot_pre)
+                self.pause_label.move(self.plot_pre.viewport().width() - FIXED_WIDTH - 10, 10)
+                self.pause_label.show()
+                self.pause_label.raise_()
+                # Restart the visualization timer
                 self.timer.start(100)
-                self.pause_label.setText("WATCHING")
+                self.pause_label.setText("VISIBLE")
                 self.pause_label.setStyleSheet("""
                     QLabel {
                         color: #aaaaaa;
@@ -609,9 +642,10 @@ class MainWindow(QWidget):
 
     def resizeEvent(self, event):
             super().resizeEvent(event)
-            self.bypass_label.move(
-                self.plot_post.viewport().width() - self.bypass_label.width() - 10, 10
-            )
-            self.pause_label.move(
-                self.plot_pre.viewport().width() - 90 - 10, 10
-            )
+            if not self.paused:
+                self.bypass_label.move(
+                    self.plot_post.viewport().width() - self.bypass_label.width() - 10, 10
+                )
+                self.pause_label.move(
+                    self.plot_pre.viewport().width() - 90 - 10, 10
+                )
