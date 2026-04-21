@@ -1,0 +1,8 @@
+# C++ build output
+build/
+*.o
+*.a
+*.so
+*.dll
+gui_engine
+gui_engine.exe
