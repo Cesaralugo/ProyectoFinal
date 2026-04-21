@@ -17,6 +17,8 @@
 #include "../include/pitch_shifter.h"
 #include "../include/phaser.h"
 #include "../include/reverb.h"
+#include "../include/distortion.h"
+#include "../include/digipot_x9103p.h"
 #include "../include/config.h"
 
 #define PI                 3.14159265358979323846f
@@ -73,7 +75,8 @@ static void alsa_write_safe(PaStream *stream, const int16_t *buf, int frames)
 #define FX_PITCHSHIFTER 5
 #define FX_PHASER       6
 #define FX_REVERB       7
-#define FX_COUNT        8
+#define FX_DISTORTION   8
+#define FX_COUNT        9
 
 int enabled[FX_COUNT]  = {0};
 int fx_order[FX_COUNT] = {0};
@@ -95,7 +98,8 @@ typedef struct {
 float process_effect(int fx_id, float sig,
                      Overdrive *od, Wah *wah, Chorus *ch,
                      Flanger *flanger, PitchShifter *pitch,
-                     Delay *delay, Phaser *phaser, Reverb *reverb)
+                     Delay *delay, Phaser *phaser, Reverb *reverb,
+                     Distortion *distortion)
 {
     switch (fx_id) {
         case FX_OVERDRIVE:    return Overdrive_process(od, sig);
@@ -106,6 +110,7 @@ float process_effect(int fx_id, float sig,
         case FX_DELAY:        return Delay_process(delay, sig);
         case FX_PHASER:       return Phaser_process(phaser, sig);
         case FX_REVERB:       return Reverb_process(reverb, sig);
+        case FX_DISTORTION:   return Distortion_process(distortion, sig);
         default:              return sig;
     }
 }
@@ -152,14 +157,19 @@ int main(void)
 {
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 
-    Delay        delay;   Delay_init(&delay, 1.0f, 0.5f, 0.4f);
-    Overdrive    od;      Overdrive_init(&od, 0.0f, 0.0f, 0.0f);
-    Wah          wah;     Wah_init(&wah, 0.7f, 5.0f, 1.0f);
-    Chorus       ch;      Chorus_init(&ch, 0.5f, 0.3f, 0.1f, 0.5f);
-    Flanger      flanger; Flanger_init(&flanger, 0.25f, 0.7f, 0.3f, 0.5f);
-    PitchShifter pitch;   PitchShifter_init(&pitch, 7.0f, 0.5f);
-    Phaser       phaser;  Phaser_init(&phaser, 0.5f, 0.7f, 0.3f, 0.5f);
-    Reverb       reverb;  Reverb_init(&reverb, 0.8f, 8000.0f, 0.3f);
+    /* Open DIGipot serial port before effect init so Distortion_init can
+     * send the initial wiper position to hardware. */
+    digipot_init(NULL);
+
+    Delay        delay;      Delay_init(&delay, 1.0f, 0.5f, 0.4f);
+    Overdrive    od;         Overdrive_init(&od, 0.0f, 0.0f, 0.0f);
+    Wah          wah;        Wah_init(&wah, 0.7f, 5.0f, 1.0f);
+    Chorus       ch;         Chorus_init(&ch, 0.5f, 0.3f, 0.1f, 0.5f);
+    Flanger      flanger;    Flanger_init(&flanger, 0.25f, 0.7f, 0.3f, 0.5f);
+    PitchShifter pitch;      PitchShifter_init(&pitch, 7.0f, 0.5f);
+    Phaser       phaser;     Phaser_init(&phaser, 0.5f, 0.7f, 0.3f, 0.5f);
+    Reverb       reverb;     Reverb_init(&reverb, 0.8f, 8000.0f, 0.3f);
+    Distortion   distortion; Distortion_init(&distortion, 128.0f);
 
     ParamMap map[] = {
         { "Overdrive",    "GAIN",        FX_OVERDRIVE,    &od.gain,           1.0f, 0.0f },
@@ -191,6 +201,7 @@ int main(void)
         { "Reverb",       "FEEDBACK",    FX_REVERB,       &reverb.feedback,   1.0f, 0.0f },
         { "Reverb",       "LPFREQ",      FX_REVERB,       &reverb.lpfreq,     1.0f, 0.0f },
         { "Reverb",       "MIX",         FX_REVERB,       &reverb.mix,        1.0f, 0.0f },
+        { "Distortion",   "WIPER",       FX_DISTORTION,   &distortion.wiper_position, 1.0f, 0.0f },
     };
     int map_size = sizeof(map) / sizeof(map[0]);
 
@@ -332,6 +343,9 @@ int main(void)
             printf("  Cadena (%d): ", fx_order_count);
             for (int k = 0; k < fx_order_count; k++) printf("%d ", fx_order[k]);
             printf("\n");
+            /* Sync DIGipot wiper whenever distortion is in the active chain */
+            if (enabled[FX_DISTORTION])
+                digipot_set_wiper((uint8_t)distortion.wiper_position);
             memset(json_buffer, 0, sizeof(json_buffer));
         }
 
@@ -370,7 +384,8 @@ int main(void)
             for (int k = 0; k < fx_order_count; k++)
                 sig = process_effect(fx_order[k], sig,
                                      &od, &wah, &ch, &flanger,
-                                     &pitch, &delay, &phaser, &reverb);
+                                     &pitch, &delay, &phaser, &reverb,
+                                     &distortion);
             batch_post[s] = sig;
             total_samples++;
         }
@@ -412,5 +427,6 @@ int main(void)
     Pa_CloseStream(pcm);
     Pa_Terminate();
     socket_close();
+    digipot_close();
     return 0;
 }

@@ -23,6 +23,7 @@ typedef enum {
     EFF_PITCH,
     EFF_PHASER,
     EFF_REVERB,
+    EFF_DISTORTION,
     EFF_COUNT       /* sentinel – keep last */
 } eff_id_t;
 

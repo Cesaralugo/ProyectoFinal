@@ -60,7 +60,8 @@ class MainWindow(QWidget):
             "Chorus",
             "Phaser",
             "PitchShifter",
-            "Reverb"
+            "Reverb",
+            "Distortion",
         ]
 
         #OnClick add effect
@@ -401,7 +402,8 @@ class MainWindow(QWidget):
             "Chorus": {"RATE": 0.5, "DEPTH": 0.3, "FEEDBACK": 0.0, "MIX": 0.2},
             "Phaser": {"RATE":0.5,"DEPTH":0.7,"FEEDBACK":0.3,"MIX":0.5},
             "PitchShifter": {"SEMITONES":0.0, "SEMITONES_B": 0.0, "MIX_A": 1.0, "MIX_B": 0.0, "MIX": 0.5},
-            "Reverb": {"FEEDBACK": 0.6, "LPFREQ": 8000.0, "MIX": 0.3}
+            "Reverb": {"FEEDBACK": 0.6, "LPFREQ": 8000.0, "MIX": 0.3},
+            "Distortion": {"WIPER": 128},
         }
 
         return defaults[effect_type]

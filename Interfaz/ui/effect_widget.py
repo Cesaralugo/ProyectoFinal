@@ -22,6 +22,7 @@ class EffectWidget(QWidget):
         "MIX_A":      (0, 1, ""),
         "MIX_B":      (0, 1, ""),
         "LPFREQ": (2000, 10000, "Hz"),
+        "WIPER":  (0, 255, ""),
     }
 
     def __init__(self, effect_data):
